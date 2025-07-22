@@ -20,7 +20,7 @@ A modern real estate application built with React, TypeScript, Cloudflare D1 dat
 - **Frontend**: React 18, TypeScript, Tailwind CSS, Vite
 - **Backend**: Cloudflare Workers
 - **Database**: Cloudflare D1 (SQLite)
-- **Storage**: Cloudflare KV
+- **Storage**: Cloudflare KV (Caching, Sessions, Analytics)
 - **Email**: SendGrid API
 - **Authentication**: Custom JWT-based auth
 - **Icons**: Lucide React
@@ -164,8 +164,40 @@ wrangler d1 execute 2020realtors-blue --command "SELECT * FROM properties LIMIT 
 - `GET /api/search-history` - Get user search history
 - `POST /api/search-history` - Save search
 
+### Analytics & Metrics
+- `GET /api/analytics/popular-searches` - Get popular search terms
+- `GET /api/analytics/metrics` - Get application metrics
+- `GET /api/health/kv` - KV service health check
+
 ### Webhooks
 - `POST /api/webhooks/sendgrid` - SendGrid webhook for email events
+
+### Caching System
+- **Property listings** cached for 30 minutes
+- **Agent data** cached for 1 hour
+- **User sessions** cached for faster authentication
+- **Search results** cached based on filters
+
+### Rate Limiting
+- **Registration**: 5 attempts per hour per IP
+- **Login**: 10 attempts per 15 minutes per IP
+- **API endpoints** protected against abuse
+
+### Analytics & Tracking
+- **Search analytics** with query tracking
+- **Popular searches** trending analysis
+- **Application metrics** (views, searches, registrations)
+- **User behavior** tracking and insights
+
+### Session Management
+- **Fast session lookups** via KV cache
+- **Automatic session cleanup** with TTL
+- **Fallback to database** for reliability
+
+### Performance Optimization
+- **Reduced database queries** through intelligent caching
+- **Faster API responses** with cached data
+- **Bulk operations** for efficient data management
 
 ## Email Notification Types
 
@@ -222,6 +254,46 @@ FROM_NAME=20/20 Realtors
 - `SENDGRID_API_KEY` - SendGrid API key (secret)
 - `FROM_EMAIL` - Sender email address
 - `FROM_NAME` - Sender name
+
+## KV Service Usage
+
+The application uses Cloudflare KV for:
+
+### 1. Caching Layer
+```typescript
+// Cache property listings
+await kv.cacheProperties(filters, properties, 1800);
+
+// Get cached data
+const cachedProperties = await kv.getCachedProperties(filters);
+```
+
+### 2. Session Management
+```typescript
+// Store session
+await kv.setSession(sessionToken, userData);
+
+// Retrieve session
+const user = await kv.getSession(sessionToken);
+```
+
+### 3. Rate Limiting
+```typescript
+// Check rate limit
+const rateLimit = await kv.checkRateLimit(identifier, 10, 3600);
+if (!rateLimit.allowed) {
+  // Handle rate limit exceeded
+}
+```
+
+### 4. Analytics
+```typescript
+// Track metrics
+await kv.incrementMetric('property_views');
+
+// Get popular searches
+const popular = await kv.getPopularSearches(10);
+```
 
 ## Email Templates
 

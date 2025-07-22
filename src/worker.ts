@@ -2,6 +2,7 @@
 import { DatabaseManager } from './lib/database';
 import { AuthManager } from './lib/auth';
 import { EmailService } from './lib/email';
+import { KVManager } from './lib/kv';
 
 export interface Env {
   DB: D1Database;
@@ -38,6 +39,7 @@ export default {
       // Initialize database, auth, and email managers
       const db = new DatabaseManager(env.DB);
       const auth = new AuthManager(db);
+      const kv = new KVManager(env.KV);
       const email = new EmailService(
         env.SENDGRID_API_KEY || 'your-sendgrid-api-key',
         env.FROM_EMAIL || 'info@2020realtors.com',
@@ -47,7 +49,7 @@ export default {
 
       // API Routes
       if (path.startsWith('/api/')) {
-        return await handleApiRequest(request, path, db, auth, email, env);
+        return await handleApiRequest(request, path, db, auth, email, kv, env);
       }
 
       // Default response for non-API routes
@@ -78,6 +80,7 @@ async function handleApiRequest(
   db: DatabaseManager,
   auth: AuthManager,
   email: EmailService,
+  kv: KVManager,
   env: Env
 ): Promise<Response> {
   const method = request.method;
@@ -87,6 +90,18 @@ async function handleApiRequest(
     // Authentication routes
     if (path === '/api/auth/register' && method === 'POST') {
       const body = await request.json() as any;
+      
+      // Rate limiting for registration
+      const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const rateLimit = await kv.checkRateLimit(`register:${clientIP}`, 5, 3600); // 5 per hour
+      
+      if (!rateLimit.allowed) {
+        return jsonResponse({ 
+          error: 'Too many registration attempts. Please try again later.',
+          resetTime: rateLimit.resetTime
+        }, 429);
+      }
+      
       const result = await auth.register(body);
       
       // Send welcome email
@@ -99,12 +114,36 @@ async function handleApiRequest(
         });
       }
       
+      // Track registration metric
+      await kv.incrementMetric('registrations');
+      
       return jsonResponse(result);
     }
 
     if (path === '/api/auth/login' && method === 'POST') {
       const body = await request.json() as any;
+      
+      // Rate limiting for login attempts
+      const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const rateLimit = await kv.checkRateLimit(`login:${clientIP}`, 10, 900); // 10 per 15 minutes
+      
+      if (!rateLimit.allowed) {
+        return jsonResponse({ 
+          error: 'Too many login attempts. Please try again later.',
+          resetTime: rateLimit.resetTime
+        }, 429);
+      }
+      
       const result = await auth.login(body.email, body.password);
+      
+      // Cache session in KV for faster lookups
+      if (result.success && result.sessionToken) {
+        await kv.setSession(result.sessionToken, result.user);
+      }
+      
+      // Track login metric
+      await kv.incrementMetric('logins');
+      
       return jsonResponse(result);
     }
 
@@ -112,13 +151,32 @@ async function handleApiRequest(
       const authHeader = request.headers.get('Authorization');
       if (authHeader && authHeader.startsWith('Bearer ')) {
         const sessionToken = authHeader.substring(7);
+        await kv.deleteSession(sessionToken);
         await auth.logout(sessionToken);
       }
       return jsonResponse({ success: true });
     }
 
     if (path === '/api/auth/me' && method === 'GET') {
-      const user = await auth.requireAuth(request);
+      // Try KV cache first for faster session lookup
+      const authHeader = request.headers.get('Authorization');
+      let user = null;
+      
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const sessionToken = authHeader.substring(7);
+        user = await kv.getSession(sessionToken);
+      }
+      
+      // Fallback to database if not in cache
+      if (!user) {
+        user = await auth.requireAuth(request);
+        // Cache the session for next time
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+          const sessionToken = authHeader.substring(7);
+          await kv.setSession(sessionToken, user);
+        }
+      }
+      
       return jsonResponse({ user });
     }
 
@@ -137,7 +195,18 @@ async function handleApiRequest(
         offset: url.searchParams.get('offset') ? parseInt(url.searchParams.get('offset')!) : undefined,
       };
 
-      const properties = await db.getAllProperties(filters);
+      // Try cache first
+      let properties = await kv.getCachedProperties(filters);
+      
+      if (!properties) {
+        // Cache miss - get from database and cache result
+        properties = await db.getAllProperties(filters);
+        await kv.cacheProperties(filters, properties, 1800); // Cache for 30 minutes
+      }
+      
+      // Track property views
+      await kv.incrementMetric('property_views');
+      
       return jsonResponse({ properties });
     }
 
@@ -171,12 +240,26 @@ async function handleApiRequest(
       };
 
       const properties = await db.searchProperties(query, filters);
+      
+      // Track search analytics
+      await kv.trackSearch(query, filters, properties.length);
+      await kv.incrementPopularSearch(query);
+      await kv.incrementMetric('searches');
+      
       return jsonResponse({ properties, query, filters });
     }
 
     // Agents routes
     if (path === '/api/agents' && method === 'GET') {
-      const agents = await db.getAllAgents();
+      // Try cache first
+      let agents = await kv.getCachedAgents();
+      
+      if (!agents) {
+        // Cache miss - get from database and cache result
+        agents = await db.getAllAgents();
+        await kv.cacheAgents(agents, 3600); // Cache for 1 hour
+      }
+      
       return jsonResponse({ agents });
     }
 
@@ -305,6 +388,9 @@ async function handleApiRequest(
         body.filters,
         body.resultsCount
       );
+      
+      // Also track in KV for analytics
+      await kv.trackSearch(body.searchQuery, body.filters, body.resultsCount);
 
       return jsonResponse({ success: true });
     }
@@ -407,6 +493,29 @@ async function handleApiRequest(
       }
 
       return jsonResponse({ success: true, inquiryId: result.meta.last_row_id });
+    }
+
+    // Analytics and metrics routes
+    if (path === '/api/analytics/popular-searches' && method === 'GET') {
+      const limit = parseInt(url.searchParams.get('limit') || '10');
+      const popularSearches = await kv.getPopularSearches(limit);
+      return jsonResponse({ popularSearches });
+    }
+
+    if (path === '/api/analytics/metrics' && method === 'GET') {
+      const metric = url.searchParams.get('metric') || 'property_views';
+      const days = parseInt(url.searchParams.get('days') || '7');
+      const metrics = await kv.getMetrics(metric, days);
+      return jsonResponse({ metrics, metric });
+    }
+
+    // KV health check route
+    if (path === '/api/health/kv' && method === 'GET') {
+      const isHealthy = await kv.healthCheck();
+      return jsonResponse({ 
+        status: isHealthy ? 'healthy' : 'unhealthy',
+        timestamp: new Date().toISOString()
+      }, isHealthy ? 200 : 503);
     }
 
     // Webhook for SendGrid events
