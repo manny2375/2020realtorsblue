@@ -162,14 +162,15 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
       });
     }
     
+    // For non-API routes, serve the built React application
     if (!url.pathname.startsWith('/api/')) {
-      // For SPA routes, serve the full React application HTML
-      console.log('Serving full React app for:', pathname);
-      const reactAppHtml = `
-<!DOCTYPE html>
+      console.log('Serving React app for:', pathname);
+      
+      // Try to get the actual built index.html from dist
+      const builtIndexHtml = `<!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#0f172a" />
@@ -208,10 +209,11 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
         }
       }
     </style>
+    <script type="module" crossorigin src="/assets/index-Bp37-wlg.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-B2zH4cK9.css">
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>`;
       
@@ -222,7 +224,7 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
         headers.set(key, value);
       });
       
-      return new Response(reactAppHtml, {
+      return new Response(builtIndexHtml, {
         status: 200,
         headers,
       });
