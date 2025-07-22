@@ -1,12 +1,9 @@
-# Cloudflare Workers configuration for Wrangler 4.30.0
-# Pure modern configuration without any legacy options
-
 name = "real-estate-app"
 main = "src/worker.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Modern Assets configuration (Wrangler 4 only)
+# Modern Assets configuration for Wrangler 4
 [assets]
 directory = "./dist"
 binding = "ASSETS"
@@ -30,6 +27,3 @@ JWT_SECRET = "your-jwt-secret-here"
 CORS_ORIGIN = "*"
 FROM_EMAIL = "info@2020realtors.com"
 FROM_NAME = "20/20 Realtors"
-
-# Secrets (set these using wrangler secret put)
-# SENDGRID_API_KEY = "your-sendgrid-api-key"
