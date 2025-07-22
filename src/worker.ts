@@ -146,6 +146,97 @@ export default {
                   </header>
 
                   <!-- Hero Section -->
+        return new Response(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Test Page</title>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
+              .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+              .success { color: green; font-weight: bold; }
+              .error { color: red; font-weight: bold; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h1>🔧 Debug Test Page</h1>
+              <p class="success">✅ Worker is running correctly</p>
+              <p class="success">✅ Static HTML serving works</p>
+              <p><strong>ASSETS binding available:</strong> ${env.ASSETS ? 'Yes' : 'No'}</p>
+              <p><strong>Current path:</strong> ${path}</p>
+              <p><strong>Environment:</strong> ${env.ENVIRONMENT}</p>
+              
+              <h2>Next Steps:</h2>
+              <ol>
+                <li>Visit <a href="/">/</a> to test React app</li>
+                <li>Visit <a href="/api/properties">/api/properties</a> to test API</li>
+                <li>Check browser console for JavaScript errors</li>
+              </ol>
+              
+              <h2>20/20 Realtors</h2>
+              <p>Your Vision, Our Mission</p>
+              <p>Phone: (714) 262-4263</p>
+              <p>Email: info@2020realtors.com</p>
+            </div>
+          </body>
+          </html>
+        `, {
+          headers: {
+            'Content-Type': 'text/html',
+            ...corsHeaders,
+          },
+        });
+      }
+
+      // Try to serve static assets, with fallback
+      try {
+        const response = await env.ASSETS.fetch(request);
+        
+        // If we get a 404 for the root path, serve a simple React app
+        if (response.status === 404 && path === '/') {
+          return new Response(`
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+              <meta charset="UTF-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+              <title>20/20 Realtors - Real Estate</title>
+              <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+              <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+              <script src="https://cdn.tailwindcss.com"></script>
+              <style>
+                body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
+                .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+                .card-hover { transition: transform 0.3s ease; }
+                .card-hover:hover { transform: translateY(-5px); }
+              </style>
+            </head>
+            <body>
+              <div id="root">
+                <div class="min-h-screen bg-gray-50">
+                  <!-- Header -->
+                  <header class="bg-slate-900 text-white py-4">
+                    <div class="max-w-7xl mx-auto px-6 flex items-center justify-between">
+                      <div class="flex items-center space-x-4">
+                        <div class="w-12 h-12 bg-yellow-500 rounded-lg flex items-center justify-center font-bold text-slate-900">
+                          20/20
+                        </div>
+                        <div>
+                          <div class="text-xl font-bold">20/20 REALTORS</div>
+                          <div class="text-yellow-400 text-sm">Your Vision, Our Mission</div>
+                        </div>
+                      </div>
+                      <nav class="hidden md:flex space-x-6">
+                        <a href="#" class="hover:text-yellow-400 transition-colors">Home</a>
+                        <a href="#" class="hover:text-yellow-400 transition-colors">Properties</a>
+                        <a href="#" class="hover:text-yellow-400 transition-colors">Agents</a>
+                        <a href="#" class="hover:text-yellow-400 transition-colors">Contact</a>
+                      </nav>
+                    </div>
+                  </header>
+
+                  <!-- Hero Section -->
 
     } catch (error) {
       console.error('Worker error:', error);
@@ -182,7 +273,7 @@ async function handleApiRequest(
       
       // Rate limiting for registration
       const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
-      const rateLimit = await kv.checkRateLimit(\`register:${clientIP}`, 5, 3600); // 5 per hour
+      const rateLimit = await kv.checkRateLimit(`register:${clientIP}`, 5, 3600); // 5 per hour
       
       if (!rateLimit.allowed) {
         return jsonResponse({ 
@@ -631,18 +722,8 @@ async function handleApiRequest(
     return jsonResponse({ error: 'Route not found' }, 404);
 
   } catch (error) {
-    console.error('API error:', error);
-    
-    if (error instanceof Error && error.message.includes('authorization')) {
-      return jsonResponse({ error: 'Unauthorized' }, 401);
-    }
-
-    return jsonResponse({ 
-      error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, 500);
-  }
-}
+      // Serve static assets using Cloudflare's built-in static assets
+      return env.ASSETS.fetch(request);
 
 function jsonResponse(data: any, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -652,10 +733,4 @@ function jsonResponse(data: any, status = 200): Response {
       ...corsHeaders,
     },
   });
-}
-          )
-        }
-      }
-    }
-  }
 }
