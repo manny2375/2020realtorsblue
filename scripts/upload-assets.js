@@ -2,6 +2,7 @@
 
 /**
  * Upload built assets to Cloudflare KV for static file serving
+ * This script uploads all files from the dist directory to KV storage
  */
 
 const fs = require('fs');
@@ -9,7 +10,7 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 const DIST_DIR = path.join(__dirname, '..', 'dist');
-const KV_NAMESPACE = '2020realtors-assets';
+const KV_BINDING = 'KV'; // This should match the binding name in wrangler.toml
 
 async function uploadAssetsToKV() {
   console.log('📦 Uploading assets to Cloudflare KV...');
@@ -25,21 +26,35 @@ async function uploadAssetsToKV() {
     
     console.log(`📁 Found ${files.length} files to upload`);
     
+    let successCount = 0;
+    let failCount = 0;
+    
     for (const file of files) {
       const relativePath = path.relative(DIST_DIR, file);
       const kvKey = relativePath.replace(/\\/g, '/'); // Normalize path separators
       
       try {
         // Upload file to KV
-        const command = `npx wrangler kv:key put "${kvKey}" --path "${file}" --binding KV`;
+        const command = `npx wrangler kv key put "${kvKey}" --path "${file}" --binding ${KV_BINDING}`;
         execSync(command, { stdio: 'pipe' });
         console.log(`✅ Uploaded: ${kvKey}`);
+        successCount++;
       } catch (error) {
-        console.warn(`⚠️  Failed to upload ${kvKey}:`, error.message);
+        console.error(`❌ Failed to upload ${kvKey}:`, error.message);
+        failCount++;
       }
     }
     
-    console.log('🎉 Asset upload completed!');
+    console.log(`\n🎉 Asset upload completed!`);
+    console.log(`✅ Successfully uploaded: ${successCount} files`);
+    if (failCount > 0) {
+      console.log(`❌ Failed uploads: ${failCount} files`);
+    }
+    
+    if (successCount === 0) {
+      console.error('\n❌ No files were uploaded successfully. Check your KV namespace configuration.');
+      process.exit(1);
+    }
     
   } catch (error) {
     console.error('❌ Asset upload failed:', error);
@@ -60,7 +75,10 @@ function getAllFiles(dir) {
       if (stat.isDirectory()) {
         traverse(fullPath);
       } else {
+        // Only include files that should be served
+        if (!item.startsWith('.') && !item.endsWith('.map')) {
         files.push(fullPath);
+        }
       }
     }
   }
@@ -70,4 +88,3 @@ function getAllFiles(dir) {
 }
 
 // Run the upload
-uploadAssetsToKV().catch(console.error);
