@@ -78,14 +78,277 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
     const url = new URL(request.url);
     
     // Serve basic HTML response for all non-API requests
+    // Try to serve static files from KV first (if available)
+    if (env.KV) {
+      try {
+        // Check for exact file match in KV
+        let kvKey = pathname === '/' ? 'index.html' : pathname.slice(1);
+        
+        // Try to get the file from KV
+        let staticFile = await env.KV.get(kvKey, { type: 'arrayBuffer' });
+        
+        if (staticFile) {
+          const headers = new Headers();
+          
+          // Set appropriate content type
+          if (kvKey.endsWith('.html')) {
+            headers.set('Content-Type', 'text/html; charset=utf-8');
+          } else if (kvKey.endsWith('.js')) {
+            headers.set('Content-Type', 'application/javascript');
+          } else if (kvKey.endsWith('.css')) {
+            headers.set('Content-Type', 'text/css');
+          } else if (kvKey.endsWith('.png')) {
+            headers.set('Content-Type', 'image/png');
+          } else if (kvKey.endsWith('.jpg') || kvKey.endsWith('.jpeg')) {
+            headers.set('Content-Type', 'image/jpeg');
+          } else if (kvKey.endsWith('.svg')) {
+            headers.set('Content-Type', 'image/svg+xml');
+          } else if (kvKey.endsWith('.ico')) {
+            headers.set('Content-Type', 'image/x-icon');
+          }
+          
+          // Set caching headers
+          if (kvKey.includes('assets/') || kvKey.endsWith('.js') || kvKey.endsWith('.css')) {
+            headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+          } else {
+            headers.set('Cache-Control', 'public, max-age=300');
+          }
+          
+          // Set CORS headers
+          Object.entries(corsHeaders).forEach(([key, value]) => {
+            headers.set(key, value);
+          });
+          
+          return new Response(staticFile, {
+            status: 200,
+            headers,
+          });
+        }
+        
+        // If not found and it's a potential SPA route, try to serve index.html
+        if (!pathname.includes('.') && pathname !== '/') {
+          const indexFile = await env.KV.get('index.html', { type: 'arrayBuffer' });
+          if (indexFile) {
+            const headers = new Headers();
+            headers.set('Content-Type', 'text/html; charset=utf-8');
+            headers.set('Cache-Control', 'public, max-age=300');
+            Object.entries(corsHeaders).forEach(([key, value]) => {
+              headers.set(key, value);
+            });
+            
+            return new Response(indexFile, {
+              status: 200,
+              headers,
+            });
+          }
+        }
+      } catch (kvError) {
+        console.log('KV static file serving failed:', kvError);
+        // Continue to fallback
+      }
+    }
+    
     if (!url.pathname.startsWith('/api/')) {
-      const basicHtml = `
+      // For SPA routes, serve the built index.html content
+      const spaHtml = `
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="20/20 Realtors" />
+    <meta name="format-detection" content="telephone=no" />
+    <title>20/20 Realtors - Modern Real Estate Property Landing Page</title>
+    
+    <!-- Preload critical fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Mapbox GL CSS -->
+    <link href='https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css' rel='stylesheet' />
+    
+    <!-- Loading styles -->
+    <style>
+      #loading {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        color: white;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      .loading-content {
+        text-align: center;
+      }
+      .loading-logo {
+        width: 120px;
+        height: auto;
+        margin-bottom: 30px;
+        animation: pulse 2s infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+      }
+      .loading-text {
+        font-size: 1.5rem;
+        font-weight: 600;
+        background: linear-gradient(135deg, #fbbf24, #f59e0b);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 10px;
+      }
+      .loading-subtitle {
+        font-size: 1rem;
+        opacity: 0.8;
+      }
+      @media screen and (max-width: 768px) {
+        input[type="text"],
+        input[type="email"],
+        input[type="tel"],
+        input[type="password"],
+        select,
+        textarea {
+          font-size: 16px !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Loading screen -->
+    <div id="loading">
+      <div class="loading-content">
+        <img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://storage.googleapis.com/msgsndr/OOffS0euyreSp3x4Tzkn/media/6859c1dd906b87cb5a04b328.png" 
+             alt="20/20 Realtors Logo" class="loading-logo">
+        <div class="loading-text">20/20 Realtors</div>
+        <div class="loading-subtitle">Loading your real estate experience...</div>
+      </div>
+    </div>
+    
+    <!-- React app root -->
+    <div id="root"></div>
+    
+    <!-- Fallback content if JavaScript fails -->
+    <noscript>
+      <div style="padding: 40px; text-align: center; font-family: Arial, sans-serif;">
+        <h1>20/20 Realtors</h1>
+        <p>Please enable JavaScript to use our website.</p>
+        <p>Contact us at <a href="tel:(714)262-4263">(714) 262-4263</a></p>
+      </div>
+    </noscript>
+    
+    <!-- Try to load the built JavaScript -->
+    <script>
+      // Remove loading screen when app loads
+      window.addEventListener('load', function() {
+        const loading = document.getElementById('loading');
+        if (loading) {
+          loading.style.opacity = '0';
+          setTimeout(() => loading.remove(), 500);
+        }
+      });
+      
+      // Fallback if React doesn't load
+      setTimeout(function() {
+        const root = document.getElementById('root');
+        const loading = document.getElementById('loading');
+        
+        if (root && root.children.length === 0) {
+          // React didn't load, show fallback
+          loading.innerHTML = \`
+            <div class="loading-content">
+              <img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://storage.googleapis.com/msgsndr/OOffS0euyreSp3x4Tzkn/media/6859c1dd906b87cb5a04b328.png" 
+                   alt="20/20 Realtors Logo" class="loading-logo">
+              <div class="loading-text">20/20 Realtors</div>
+              <div class="loading-subtitle">Your Vision, Our Mission</div>
+              <div style="margin-top: 30px;">
+                <p>Phone: <a href="tel:(714)262-4263" style="color: #fbbf24;">(714) 262-4263</a></p>
+                <p>Email: <a href="mailto:info@2020realtors.com" style="color: #fbbf24;">info@2020realtors.com</a></p>
+              </div>
+            </div>
+          \`;
+        }
+      }, 5000);
+    </script>
+    
+    <!-- Try to load React app assets -->
+    <script>
+      // Dynamically load CSS and JS files
+      const loadAsset = (src, type) => {
+        return new Promise((resolve, reject) => {
+          let element;
+          if (type === 'css') {
+            element = document.createElement('link');
+            element.rel = 'stylesheet';
+            element.href = src;
+          } else {
+            element = document.createElement('script');
+            element.src = src;
+            element.type = 'module';
+          }
+          element.onload = resolve;
+          element.onerror = reject;
+          document.head.appendChild(element);
+        });
+      };
+      
+      // Try to load the built assets
+      Promise.all([
+        loadAsset('/assets/index-C3Encc6R.css', 'css').catch(() => {}),
+        loadAsset('/assets/vendor-DavUf6mE.js', 'js').catch(() => {}),
+        loadAsset('/assets/utils-3InIyiNx.js', 'js').catch(() => {}),
+        loadAsset('/assets/index-Dw5svzHQ.js', 'js').catch(() => {}),
+      ]).then(() => {
+        console.log('Assets loaded successfully');
+      }).catch((error) => {
+        console.log('Some assets failed to load, using fallback');
+      });
+    </script>
+  </body>
+</html>`;
+      
+      const headers = new Headers();
+      headers.set('Content-Type', 'text/html; charset=utf-8');
+      headers.set('Cache-Control', 'public, max-age=300');
+      Object.entries(corsHeaders).forEach(([key, value]) => {
+        headers.set(key, value);
+      });
+      
+      return new Response(spaHtml, {
+        status: 200,
+        headers,
+      });
+    }
+    
+    return new Response('Not Found', { 
+      status: 404,
+      headers: corsHeaders,
+    });
+
+  } catch (error) {
+    console.error('Static file serving error:', error);
+    
+    // Fallback to basic HTML page
+    const url = new URL(request.url);
+    if (!url.pathname.startsWith('/api/')) {
+      const fallbackHtml = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>20/20 Realtors - Real Estate</title>
+    <title>20/20 Realtors</title>
     <style>
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -101,11 +364,6 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
         .container { 
             text-align: center; 
             max-width: 600px;
-            background: rgba(255,255,255,0.1);
-            padding: 60px 40px;
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
         }
         h1 { 
             font-size: 3rem; 
@@ -115,63 +373,40 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
-        p { 
-            font-size: 1.2rem; 
-            margin-bottom: 30px;
-            opacity: 0.9;
-            line-height: 1.6;
-        }
-        .logo {
-            width: 120px;
-            height: auto;
-            margin-bottom: 30px;
-        }
-        .contact {
-            margin-top: 40px;
-            padding-top: 30px;
-            border-top: 1px solid rgba(255,255,255,0.2);
-        }
-        .contact a {
-            color: #fbbf24;
-            text-decoration: none;
-            font-weight: 600;
-        }
-        .contact a:hover {
-            text-decoration: underline;
-        }
-        .api-info {
-            margin-top: 40px;
-            padding-top: 30px;
-            border-top: 1px solid rgba(255,255,255,0.2);
-            font-size: 0.9rem;
-        }
-        .api-info code {
-            background: rgba(255,255,255,0.1);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: 'Courier New', monospace;
-        }
+        a { color: #fbbf24; text-decoration: none; }
+        a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
     <div class="container">
-        <img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://storage.googleapis.com/msgsndr/OOffS0euyreSp3x4Tzkn/media/6859c1dd906b87cb5a04b328.png" 
-             alt="20/20 Realtors Logo" class="logo">
         <h1>20/20 Realtors</h1>
-        <p>Your Vision, Our Mission</p>
-        <p>We're currently setting up our new website. Please contact us directly for all your real estate needs in Orange County.</p>
-        <div class="contact">
-            <p><strong>Phone:</strong> <a href="tel:(714)262-4263">(714) 262-4263</a></p>
-            <p><strong>Email:</strong> <a href="mailto:info@2020realtors.com">info@2020realtors.com</a></p>
-            <p><strong>Address:</strong> 2677 N MAIN ST STE 465, SANTA ANA, CA 92705</p>
-        </div>
-        <div class="api-info">
-            <p><strong>API Status:</strong> ✅ Backend services are running</p>
-            <p><strong>Available endpoints:</strong> <code>/api/properties</code>, <code>/api/agents</code>, <code>/api/auth/*</code></p>
-        </div>
+        <p>Contact us at <a href="tel:(714)262-4263">(714) 262-4263</a></p>
+        <p>Email: <a href="mailto:info@2020realtors.com">info@2020realtors.com</a></p>
     </div>
 </body>
 </html>`;
+      
+      return new Response(fallbackHtml, { 
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          ...corsHeaders,
+        </div>
+      });
+    }
+    
+    return new Response('Internal Server Error', { 
+      status: 500,
+      headers: corsHeaders,
+    });
+  }
+}
+
+// Upload built assets to KV storage
+async function uploadAssetsToKV(env: Env) {
+  // This would be called during deployment to upload the built files
+  // For now, we'll rely on the dynamic loading approach
+}
       
       const headers = new Headers();
       headers.set('Content-Type', 'text/html');
