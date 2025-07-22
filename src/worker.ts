@@ -157,32 +157,6 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
     });
   }
 }
-      
-      if (indexResponse.status === 200) {
-        return new Response(indexResponse.body, {
-          status: 200,
-          headers: {
-            'Content-Type': 'text/html',
-            'Cache-Control': 'public, max-age=0, must-revalidate',
-            ...corsHeaders,
-          },
-        });
-      }
-    }
-    
-    return new Response('Not Found', { 
-      status: 404,
-      headers: corsHeaders,
-    });
-
-  } catch (error) {
-    console.error('Static file error:', error);
-    return new Response('Internal Server Error', { 
-      status: 500,
-      headers: corsHeaders,
-    });
-  }
-}
 
 
 async function handleApiRequest(
