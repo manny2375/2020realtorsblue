@@ -5,9 +5,14 @@
  * This script uploads all files from the dist directory to KV storage
  */
 
-const fs = require('fs');
-const path = require('path');
-const { execSync } = require('child_process');
+import fs from 'fs';
+import path from 'path';
+import { execSync } from 'child_process';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const DIST_DIR = path.join(__dirname, '..', 'dist');
 const KV_BINDING = 'KV'; // This should match the binding name in wrangler.toml
