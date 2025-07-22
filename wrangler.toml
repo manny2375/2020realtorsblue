@@ -3,7 +3,7 @@
 
 name = "real-estate-app"
 main = "src/worker.ts"
-compatibility_date = "2024-01-01"
+compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
 # Modern Assets configuration for Wrangler 4

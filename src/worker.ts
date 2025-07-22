@@ -77,32 +77,86 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
   try {
     const url = new URL(request.url);
     
-    // Try to serve the static asset using the Assets binding
-    let assetResponse;
-    try {
-      assetResponse = await env.ASSETS.fetch(request);
-    } catch (error) {
-      console.log('Assets fetch error:', error);
-      assetResponse = new Response(null, { status: 404 });
-    }
+    // Try to serve the static asset using the modern Assets binding
+    const assetResponse = await env.ASSETS.fetch(request);
     
-    if (assetResponse.status === 200) {
-      // Add CORS headers to the asset response
-      const response = new Response(assetResponse.body, {
+    if (assetResponse && assetResponse.status === 200) {
+      // Clone the response and add CORS headers
+      const headers = new Headers(assetResponse.headers);
+      Object.entries(corsHeaders).forEach(([key, value]) => {
+        headers.set(key, value);
+      });
+      
+      return new Response(assetResponse.body, {
         status: assetResponse.status,
         statusText: assetResponse.statusText,
-        headers: {
-          ...Object.fromEntries(assetResponse.headers),
-          ...corsHeaders,
-        },
+        headers,
       });
-      return response;
     }
     
     // If asset not found and it's not an API route, serve index.html for SPA routing
     if (!url.pathname.startsWith('/api/')) {
-      const indexRequest = new Request(new URL('/index.html', request.url), request);
-      const indexResponse = await env.ASSETS.fetch(indexRequest);
+      try {
+        const indexRequest = new Request(new URL('/index.html', request.url), request);
+        const indexResponse = await env.ASSETS.fetch(indexRequest);
+        
+        if (indexResponse && indexResponse.status === 200) {
+          const headers = new Headers(indexResponse.headers);
+          headers.set('Content-Type', 'text/html');
+          headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
+          Object.entries(corsHeaders).forEach(([key, value]) => {
+            headers.set(key, value);
+          });
+          
+          return new Response(indexResponse.body, {
+            status: 200,
+            headers,
+          });
+        }
+      } catch (error) {
+        console.error('Error serving index.html:', error);
+      }
+    }
+    
+    return new Response('Not Found', { 
+      status: 404,
+      headers: corsHeaders,
+    });
+
+  } catch (error) {
+    console.error('Static file error:', error);
+    
+    // If it's not an API route, try to serve index.html as fallback for SPA
+    const url = new URL(request.url);
+    if (!url.pathname.startsWith('/api/')) {
+      try {
+        const indexRequest = new Request(new URL('/index.html', request.url), request);
+        const indexResponse = await env.ASSETS.fetch(indexRequest);
+        
+        if (indexResponse && indexResponse.status === 200) {
+          const headers = new Headers();
+          headers.set('Content-Type', 'text/html');
+          headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
+          Object.entries(corsHeaders).forEach(([key, value]) => {
+            headers.set(key, value);
+          });
+          
+          return new Response(indexResponse.body, {
+            status: 200,
+            headers,
+          });
+        }
+      } catch (fallbackError) {
+        console.error('Fallback index.html error:', fallbackError);
+      }
+    }
+    
+    return new Response('Internal Server Error', { 
+      status: 500,
+      headers: corsHeaders,
+    });
+  }
+}
       
       if (indexResponse.status === 200) {
         return new Response(indexResponse.body, {
