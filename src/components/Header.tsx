@@ -146,193 +146,9 @@ export default {
                   </header>
 
                   <!-- Hero Section -->
-        return new Response(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>Test Page</title>
-            <style>
-              body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
-              .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
-              .success { color: green; font-weight: bold; }
-              .error { color: red; font-weight: bold; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>🔧 Debug Test Page</h1>
-              <p class="success">✅ Worker is running correctly</p>
-              <p class="success">✅ Static HTML serving works</p>
-              <p><strong>ASSETS binding available:</strong> ${env.ASSETS ? 'Yes' : 'No'}</p>
-              <p><strong>Current path:</strong> ${path}</p>
-              <p><strong>Environment:</strong> ${env.ENVIRONMENT}</p>
-              
-              <h2>Next Steps:</h2>
-              <ol>
-                <li>Visit <a href="/">/</a> to test React app</li>
-                <li>Visit <a href="/api/properties">/api/properties</a> to test API</li>
-                <li>Check browser console for JavaScript errors</li>
-              </ol>
-              
-              <h2>20/20 Realtors</h2>
-              <p>Your Vision, Our Mission</p>
-              <p>Phone: (714) 262-4263</p>
-              <p>Email: info@2020realtors.com</p>
-            </div>
-          </body>
-          </html>
-        `, {
-          headers: {
-            'Content-Type': 'text/html',
-            ...corsHeaders,
-          },
-        });
-      }
-
-      // Try to serve static assets, with fallback
-      try {
-        const response = await env.ASSETS.fetch(request);
-        
-        // If we get a 404 for the root path, serve a simple React app
-        if (response.status === 404 && path === '/') {
-          return new Response(`
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-              <meta charset="UTF-8" />
-              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-              <title>20/20 Realtors - Real Estate</title>
-              <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-              <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-              <script src="https://cdn.tailwindcss.com"></script>
-              <style>
-                body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
-                .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-                .card-hover { transition: transform 0.3s ease; }
-                .card-hover:hover { transform: translateY(-5px); }
-              </style>
-            </head>
-            <body>
-              <div id="root">
-                <div class="min-h-screen bg-gray-50">
-                  <!-- Header -->
-                  <header class="bg-slate-900 text-white py-4">
-                    <div class="max-w-7xl mx-auto px-6 flex items-center justify-between">
-                      <div class="flex items-center space-x-4">
-                        <div class="w-12 h-12 bg-yellow-500 rounded-lg flex items-center justify-center font-bold text-slate-900">
-                          20/20
-                        </div>
-                        <div>
-                          <div class="text-xl font-bold">20/20 REALTORS</div>
-                          <div class="text-yellow-400 text-sm">Your Vision, Our Mission</div>
-                        </div>
-                      </div>
-                      <nav class="hidden md:flex space-x-6">
-                        <a href="#" class="hover:text-yellow-400 transition-colors">Home</a>
-                        <a href="#" class="hover:text-yellow-400 transition-colors">Properties</a>
-                        <a href="#" class="hover:text-yellow-400 transition-colors">Agents</a>
-                        <a href="#" class="hover:text-yellow-400 transition-colors">Contact</a>
-                      </nav>
-                    </div>
-                  </header>
-
-                  <!-- Hero Section -->
-        return new Response(`
-          )
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>Test Page</title>
-            <style>
-              body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
-              .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
-              .success { color: green; font-weight: bold; }
-              .error { color: red; font-weight: bold; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>🔧 Debug Test Page</h1>
-              <p class="success">✅ Worker is running correctly</p>
-              <p class="success">✅ Static HTML serving works</p>
-              <p><strong>ASSETS binding available:</strong> ${env.ASSETS ? 'Yes' : 'No'}</p>
-              <p><strong>Current path:</strong> ${path}</p>
-              <p><strong>Environment:</strong> ${env.ENVIRONMENT}</p>
-              
-              <h2>Next Steps:</h2>
-              <ol>
-                <li>Visit <a href="/">/</a> to test React app</li>
-                <li>Visit <a href="/api/properties">/api/properties</a> to test API</li>
-                <li>Check browser console for JavaScript errors</li>
-              </ol>
-              
-              <h2>20/20 Realtors</h2>
-              <p>Your Vision, Our Mission</p>
-              <p>Phone: (714) 262-4263</p>
-              <p>Email: info@2020realtors.com</p>
-            </div>
-          </body>
-          </html>
-        }
-        `, {
-          headers: {
-            'Content-Type': 'text/html',
-            ...corsHeaders,
-          },
-        });
-      }
-
-      // Try to serve static assets, with fallback
-      try {
-        const response = await env.ASSETS.fetch(request);
-        
-        // If we get a 404 for the root path, serve a simple React app
-        if (response.status === 404 && path === '/') {
-          return new Response(`
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-              <meta charset="UTF-8" />
-              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-              <title>20/20 Realtors - Real Estate</title>
-              <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-              <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-              <script src="https://cdn.tailwindcss.com"></script>
-              <style>
-                body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
-                .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-                .card-hover { transition: transform 0.3s ease; }
-                .card-hover:hover { transform: translateY(-5px); }
-              </style>
-            </head>
-            <body>
-              <div id="root">
-                <div class="min-h-screen bg-gray-50">
-                  <!-- Header -->
-                  <header class="bg-slate-900 text-white py-4">
-                    <div class="max-w-7xl mx-auto px-6 flex items-center justify-between">
-                      <div class="flex items-center space-x-4">
-                        <div class="w-12 h-12 bg-yellow-500 rounded-lg flex items-center justify-center font-bold text-slate-900">
-                          20/20
-                        </div>
-                        <div>
-                          <div class="text-xl font-bold">20/20 REALTORS</div>
-                          <div class="text-yellow-400 text-sm">Your Vision, Our Mission</div>
-                        </div>
-                      </div>
-                      <nav class="hidden md:flex space-x-6">
-                        <a href="#" class="hover:text-yellow-400 transition-colors">Home</a>
-                        <a href="#" class="hover:text-yellow-400 transition-colors">Properties</a>
-                        <a href="#" class="hover:text-yellow-400 transition-colors">Agents</a>
-                        <a href="#" class="hover:text-yellow-400 transition-colors">Contact</a>
-                      </nav>
-                    </div>
-                  </header>
-
-                  <!-- Hero Section -->
                 </div>
               </div>
-          \  </body>
+            </body>
             </html>
           `, {
             headers: {
@@ -423,7 +239,7 @@ async function handleApiRequest(
       
       // Rate limiting for registration
       const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
-      const rateLimit = await kv.checkRateLimit(\`register:${clientIP}`, 5, 3600); // 5 per hour
+      const rateLimit = await kv.checkRateLimit(`register:${clientIP}`, 5, 3600); // 5 per hour
       
       if (!rateLimit.allowed) {
         return jsonResponse({ 
@@ -455,7 +271,7 @@ async function handleApiRequest(
       
       // Rate limiting for login attempts
       const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
-      const rateLimit = await kv.checkRateLimit(\`login:${clientIP}`, 10, 900); // 10 per 15 minutes
+      const rateLimit = await kv.checkRateLimit(`login:${clientIP}`, 10, 900); // 10 per 15 minutes
       
       if (!rateLimit.allowed) {
         return jsonResponse({ 
@@ -639,7 +455,7 @@ async function handleApiRequest(
           await db.addToFavorites(user.id, propertyId);
         } catch (error) {
           // Ignore duplicates, continue with others
-          console.log(\`Favorite ${propertyId} already exists for user ${user.id}`);
+          console.log(`Favorite ${propertyId} already exists for user ${user.id}`);
         }
       }
 
@@ -671,13 +487,13 @@ async function handleApiRequest(
           await email.sendPropertyInquiryNotification({
             propertyId: body.propertyId,
             propertyTitle: property.title,
-            propertyAddress: \`${property.address}, ${property.city}, ${property.state}`,
+            propertyAddress: `${property.address}, ${property.city}, ${property.state}`,
             inquirerName: body.name,
             inquirerEmail: body.email,
             inquirerPhone: body.phone,
             message: body.message || 'No message provided',
             agentEmail: property.agent_email,
-            agentName: \`${property.agent_first_name} ${property.agent_last_name}`
+            agentName: `${property.agent_first_name} ${property.agent_last_name}`
           });
         }
       }
@@ -798,12 +614,12 @@ async function handleApiRequest(
         await email.sendTourRequestConfirmation({
           propertyId: body.propertyId,
           propertyTitle: property.title,
-          propertyAddress: \`${property.address}, ${property.city}, ${property.state}`,
+          propertyAddress: `${property.address}, ${property.city}, ${property.state}`,
           clientName: body.fullName,
           clientEmail: body.email,
           requestedDate: body.message,
           agentName: property.agent_first_name && property.agent_last_name 
-            ? \`${property.agent_first_name} ${property.agent_last_name}`
+            ? `${property.agent_first_name} ${property.agent_last_name}`
             : '20/20 Realtors Team',
           agentPhone: property.agent_phone || '(714) 262-4263'
         });
@@ -813,13 +629,13 @@ async function handleApiRequest(
           await email.sendPropertyInquiryNotification({
             propertyId: body.propertyId,
             propertyTitle: property.title,
-            propertyAddress: \`${property.address}, ${property.city}, ${property.state}`,
+            propertyAddress: `${property.address}, ${property.city}, ${property.state}`,
             inquirerName: body.fullName,
             inquirerEmail: body.email,
             inquirerPhone: body.phone,
-            message: \`Tour Request: ${body.message}`,
+            message: `Tour Request: ${body.message}`,
             agentEmail: property.agent_email,
-            agentName: \`${property.agent_first_name} ${property.agent_last_name}`
+            agentName: `${property.agent_first_name} ${property.agent_last_name}`
           });
         }
       }
@@ -890,8 +706,4 @@ function jsonResponse(data: any, status = 200): Response {
       ...corsHeaders,
     },
   });
-}
-      }
-    }
-  }
 }
