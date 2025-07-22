@@ -147,6 +147,7 @@ export default {
 
                   <!-- Hero Section -->
         return new Response(`
+          )
           <!DOCTYPE html>
           <html>
           <head>
@@ -181,6 +182,7 @@ export default {
             </div>
           </body>
           </html>
+        }
         `, {
           headers: {
             'Content-Type': 'text/html',
@@ -330,7 +332,7 @@ async function handleApiRequest(
       
       // Rate limiting for registration
       const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
-      const rateLimit = await kv.checkRateLimit(`register:${clientIP}`, 5, 3600); // 5 per hour
+      const rateLimit = await kv.checkRateLimit(\`register:${clientIP}`, 5, 3600); // 5 per hour
       
       if (!rateLimit.allowed) {
         return jsonResponse({ 
@@ -362,7 +364,7 @@ async function handleApiRequest(
       
       // Rate limiting for login attempts
       const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
-      const rateLimit = await kv.checkRateLimit(`login:${clientIP}`, 10, 900); // 10 per 15 minutes
+      const rateLimit = await kv.checkRateLimit(\`login:${clientIP}`, 10, 900); // 10 per 15 minutes
       
       if (!rateLimit.allowed) {
         return jsonResponse({ 
@@ -546,7 +548,7 @@ async function handleApiRequest(
           await db.addToFavorites(user.id, propertyId);
         } catch (error) {
           // Ignore duplicates, continue with others
-          console.log(`Favorite ${propertyId} already exists for user ${user.id}`);
+          console.log(\`Favorite ${propertyId} already exists for user ${user.id}`);
         }
       }
 
@@ -578,13 +580,13 @@ async function handleApiRequest(
           await email.sendPropertyInquiryNotification({
             propertyId: body.propertyId,
             propertyTitle: property.title,
-            propertyAddress: `${property.address}, ${property.city}, ${property.state}`,
+            propertyAddress: \`${property.address}, ${property.city}, ${property.state}`,
             inquirerName: body.name,
             inquirerEmail: body.email,
             inquirerPhone: body.phone,
             message: body.message || 'No message provided',
             agentEmail: property.agent_email,
-            agentName: `${property.agent_first_name} ${property.agent_last_name}`
+            agentName: \`${property.agent_first_name} ${property.agent_last_name}`
           });
         }
       }
@@ -705,12 +707,12 @@ async function handleApiRequest(
         await email.sendTourRequestConfirmation({
           propertyId: body.propertyId,
           propertyTitle: property.title,
-          propertyAddress: `${property.address}, ${property.city}, ${property.state}`,
+          propertyAddress: \`${property.address}, ${property.city}, ${property.state}`,
           clientName: body.fullName,
           clientEmail: body.email,
           requestedDate: body.message,
           agentName: property.agent_first_name && property.agent_last_name 
-            ? `${property.agent_first_name} ${property.agent_last_name}`
+            ? \`${property.agent_first_name} ${property.agent_last_name}`
             : '20/20 Realtors Team',
           agentPhone: property.agent_phone || '(714) 262-4263'
         });
@@ -720,13 +722,13 @@ async function handleApiRequest(
           await email.sendPropertyInquiryNotification({
             propertyId: body.propertyId,
             propertyTitle: property.title,
-            propertyAddress: `${property.address}, ${property.city}, ${property.state}`,
+            propertyAddress: \`${property.address}, ${property.city}, ${property.state}`,
             inquirerName: body.fullName,
             inquirerEmail: body.email,
             inquirerPhone: body.phone,
-            message: `Tour Request: ${body.message}`,
+            message: \`Tour Request: ${body.message}`,
             agentEmail: property.agent_email,
-            agentName: `${property.agent_first_name} ${property.agent_last_name}`
+            agentName: \`${property.agent_first_name} ${property.agent_last_name}`
           });
         }
       }
@@ -797,4 +799,8 @@ function jsonResponse(data: any, status = 200): Response {
       ...corsHeaders,
     },
   });
+}
+      }
+    }
+  }
 }
