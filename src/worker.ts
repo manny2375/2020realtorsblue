@@ -79,129 +79,100 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
     const url = new URL(request.url);
     console.log('Handling static request for:', url.pathname);
     
-    // Try to serve the static asset - compatible with both Wrangler 3 and 4
-    let assetResponse = null;
-    
-    // Try modern Assets API first (Wrangler 4)
-    if (env.ASSETS) {
-      try {
-        assetResponse = await env.ASSETS.fetch(request);
-        console.log('Modern Assets API response status:', assetResponse?.status);
-      } catch (assetError) {
-        console.error('Modern Assets API error:', assetError);
-      }
-    }
-    
-    // Fallback for Wrangler 3 compatibility
-    if (!assetResponse && (globalThis as any).__STATIC_CONTENT) {
-      try {
-        const staticContent = (globalThis as any).__STATIC_CONTENT;
-        const assetKey = url.pathname === '/' ? '/index.html' : url.pathname;
-        const asset = await staticContent.get(assetKey.substring(1), 'arrayBuffer');
-        
-        if (asset) {
-          const headers = new Headers();
-          const ext = url.pathname.split('.').pop()?.toLowerCase();
-          
-          if (ext === 'js') {
-            headers.set('Content-Type', 'application/javascript');
-          } else if (ext === 'css') {
-            headers.set('Content-Type', 'text/css');
-          } else if (ext === 'html') {
-            headers.set('Content-Type', 'text/html');
-          }
-          
-          Object.entries(corsHeaders).forEach(([key, value]) => {
-            headers.set(key, value);
-          });
-          
-          assetResponse = new Response(asset, { status: 200, headers });
-          console.log('Legacy static content served:', assetKey);
+    // Simple fallback - serve a basic HTML response for now
+    // This will work with any Wrangler version
+    if (!url.pathname.startsWith('/api/')) {
+      const basicHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>20/20 Realtors - Real Estate</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0; 
+            padding: 40px 20px; 
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-      } catch (legacyError) {
-        console.error('Legacy static content error:', legacyError);
-      }
-    }
-    
-    if (assetResponse && assetResponse.status === 200) {
-      // Clone the response and add CORS headers
-      const headers = new Headers(assetResponse.headers);
+        .container { 
+            text-align: center; 
+            max-width: 600px;
+            background: rgba(255,255,255,0.1);
+            padding: 60px 40px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        h1 { 
+            font-size: 3rem; 
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        p { 
+            font-size: 1.2rem; 
+            margin-bottom: 30px;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+        .logo {
+            width: 120px;
+            height: auto;
+            margin-bottom: 30px;
+        }
+        .contact {
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+        .contact a {
+            color: #fbbf24;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .contact a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://storage.googleapis.com/msgsndr/OOffS0euyreSp3x4Tzkn/media/6859c1dd906b87cb5a04b328.png" 
+             alt="20/20 Realtors Logo" class="logo">
+        <h1>20/20 Realtors</h1>
+        <p>Your Vision, Our Mission</p>
+        <p>We're currently setting up our new website. Please contact us directly for all your real estate needs in Orange County.</p>
+        <div class="contact">
+            <p><strong>Phone:</strong> <a href="tel:(714)262-4263">(714) 262-4263</a></p>
+            <p><strong>Email:</strong> <a href="mailto:info@2020realtors.com">info@2020realtors.com</a></p>
+            <p><strong>Address:</strong> 2677 N MAIN ST STE 465, SANTA ANA, CA 92705</p>
+        </div>
+    </div>
+</body>
+</html>`;
       
-      // Set proper content type based on file extension
-      const ext = url.pathname.split('.').pop()?.toLowerCase();
-      if (ext === 'js') {
-        headers.set('Content-Type', 'application/javascript');
-      } else if (ext === 'css') {
-        headers.set('Content-Type', 'text/css');
-      } else if (ext === 'html') {
-        headers.set('Content-Type', 'text/html');
-      }
-      
+      const headers = new Headers();
+      headers.set('Content-Type', 'text/html');
+      headers.set('Cache-Control', 'public, max-age=300');
       Object.entries(corsHeaders).forEach(([key, value]) => {
         headers.set(key, value);
       });
       
-      return new Response(assetResponse.body, {
-        status: assetResponse.status,
-        statusText: assetResponse.statusText,
+      return new Response(basicHtml, {
+        status: 200,
         headers,
       });
     }
     
-    // If asset not found and it's not an API route, serve index.html for SPA routing
-    if (!url.pathname.startsWith('/api/')) {
-      console.log('Serving index.html for SPA routing');
-      
-      // Try modern Assets API for index.html
-      if (env.ASSETS) {
-        try {
-          const indexRequest = new Request(new URL('/index.html', request.url), request);
-          const indexResponse = await env.ASSETS.fetch(indexRequest);
-          
-          if (indexResponse && indexResponse.status === 200) {
-            const headers = new Headers(indexResponse.headers);
-            headers.set('Content-Type', 'text/html');
-            headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
-            Object.entries(corsHeaders).forEach(([key, value]) => {
-              headers.set(key, value);
-            });
-            
-            return new Response(indexResponse.body, {
-              status: 200,
-              headers,
-            });
-          }
-        } catch (error) {
-          console.error('Error serving index.html via Assets API:', error);
-        }
-      }
-      
-      // Fallback to legacy static content for index.html
-      if ((globalThis as any).__STATIC_CONTENT) {
-        try {
-          const staticContent = (globalThis as any).__STATIC_CONTENT;
-          const indexHtml = await staticContent.get('index.html', 'text');
-          
-          if (indexHtml) {
-            const headers = new Headers();
-            headers.set('Content-Type', 'text/html');
-            headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
-            Object.entries(corsHeaders).forEach(([key, value]) => {
-              headers.set(key, value);
-            });
-            
-            return new Response(indexHtml, {
-              status: 200,
-              headers,
-            });
-          }
-        } catch (error) {
-          console.error('Error serving index.html via legacy static content:', error);
-        }
-      }
-    }
-    
-    console.log('Asset not found, returning 404');
     return new Response('Not Found', { 
       status: 404,
       headers: corsHeaders,
@@ -210,58 +181,17 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
   } catch (error) {
     console.error('Static file error:', error);
     
-    // If it's not an API route, try to serve index.html as fallback for SPA
+    // Fallback to basic HTML page
     const url = new URL(request.url);
     if (!url.pathname.startsWith('/api/')) {
-      console.log('Fallback: serving index.html due to error');
-      
-      // Try both modern and legacy approaches for maximum compatibility
-      if (env.ASSETS) {
-        try {
-          const indexRequest = new Request(new URL('/index.html', request.url), request);
-          const indexResponse = await env.ASSETS.fetch(indexRequest);
-          
-          if (indexResponse && indexResponse.status === 200) {
-            const headers = new Headers();
-            headers.set('Content-Type', 'text/html');
-            headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
-            Object.entries(corsHeaders).forEach(([key, value]) => {
-              headers.set(key, value);
-            });
-            
-            return new Response(indexResponse.body, {
-              status: 200,
-              headers,
-            });
-          }
-        } catch (fallbackError) {
-          console.error('Fallback Assets API error:', fallbackError);
-        }
-      }
-      
-      // Final fallback to legacy static content
-      if ((globalThis as any).__STATIC_CONTENT) {
-        try {
-          const staticContent = (globalThis as any).__STATIC_CONTENT;
-          const indexHtml = await staticContent.get('index.html', 'text');
-          
-          if (indexHtml) {
-            const headers = new Headers();
-            headers.set('Content-Type', 'text/html');
-            headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
-            Object.entries(corsHeaders).forEach(([key, value]) => {
-              headers.set(key, value);
-            });
-            
-            return new Response(indexHtml, {
-              status: 200,
-              headers,
-            });
-          }
-        } catch (fallbackError) {
-          console.error('Fallback legacy static content error:', fallbackError);
-        }
-      }
+      console.log('Fallback: serving basic HTML due to error');
+      return new Response('20/20 Realtors - Contact us at (714) 262-4263', { 
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html',
+          ...corsHeaders,
+        },
+      });
     }
     
     return new Response('Internal Server Error', { 
