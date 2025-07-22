@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Home, Building2, Users, Mail, Heart, User, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface HeaderProps {
@@ -79,10 +79,10 @@ export default function Header({ currentPage, onPageChange, showSignInModal, set
   };
 
   const navItems = [
-    { id: 'home', label: 'Home', icon: Home },
-    { id: 'properties', label: 'Properties', icon: Building2 },
-    { id: 'agents', label: 'Agents', icon: Users },
-    { id: 'contact', label: 'Contact', icon: Mail },
+    { id: 'home', label: 'Home' },
+    { id: 'properties', label: 'Properties' },
+    { id: 'agents', label: 'Agents' },
+    { id: 'contact', label: 'Contact' },
   ];
 
   return (
@@ -116,12 +116,11 @@ export default function Header({ currentPage, onPageChange, showSignInModal, set
             {user && (
               <button
                 onClick={() => onPageChange('favorites')}
-                className={`flex items-center space-x-1 text-sm font-medium transition-colors hover:text-yellow-400 ${
+                className={`text-sm font-medium transition-colors hover:text-yellow-400 ${
                   currentPage === 'favorites' ? 'text-yellow-400' : 'text-white'
                 }`}
               >
-                <Heart className="w-4 h-4" />
-                <span>Favorites</span>
+                Favorites
               </button>
             )}
           </nav>
