@@ -147,6 +147,7 @@ export default {
 
                   <!-- Hero Section -->
         return new Response(`
+          )
           <!DOCTYPE html>
           <html>
           <head>
@@ -181,6 +182,7 @@ export default {
             </div>
           </body>
           </html>
+        }
         `, {
           headers: {
             'Content-Type': 'text/html',
@@ -238,7 +240,7 @@ export default {
 
                   <!-- Hero Section -->
 
-    } catch (error) {
+          } catch (error) {
       console.error('Worker error:', error);
       return new Response(JSON.stringify({ 
         error: 'Internal server error',
@@ -251,8 +253,9 @@ export default {
         },
       });
     }
-  },
-};
+      },
+  };
+}
 
 async function handleApiRequest(
   request: Request,
@@ -724,6 +727,8 @@ async function handleApiRequest(
   } catch (error) {
       // Serve static assets using Cloudflare's built-in static assets
       return env.ASSETS.fetch(request);
+  }
+}
 
 function jsonResponse(data: any, status = 200): Response {
   return new Response(JSON.stringify(data), {
