@@ -28,6 +28,7 @@ export default {
     try {
       const url = new URL(request.url);
       const path = url.pathname;
+      console.log('Worker handling request:', path);
 
       // Handle CORS preflight requests
       if (request.method === 'OPTIONS') {
@@ -78,14 +79,48 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
     const url = new URL(request.url);
     console.log('Handling static request for:', url.pathname);
     
-    // Try to serve the static asset using the modern Assets binding
-    let assetResponse;
-    try {
-      assetResponse = await env.ASSETS.fetch(request);
-      console.log('Asset response status:', assetResponse?.status);
-    } catch (assetError) {
-      console.error('Asset fetch error:', assetError);
-      assetResponse = null;
+    // Try to serve the static asset - compatible with both Wrangler 3 and 4
+    let assetResponse = null;
+    
+    // Try modern Assets API first (Wrangler 4)
+    if (env.ASSETS) {
+      try {
+        assetResponse = await env.ASSETS.fetch(request);
+        console.log('Modern Assets API response status:', assetResponse?.status);
+      } catch (assetError) {
+        console.error('Modern Assets API error:', assetError);
+      }
+    }
+    
+    // Fallback for Wrangler 3 compatibility
+    if (!assetResponse && (globalThis as any).__STATIC_CONTENT) {
+      try {
+        const staticContent = (globalThis as any).__STATIC_CONTENT;
+        const assetKey = url.pathname === '/' ? '/index.html' : url.pathname;
+        const asset = await staticContent.get(assetKey.substring(1), 'arrayBuffer');
+        
+        if (asset) {
+          const headers = new Headers();
+          const ext = url.pathname.split('.').pop()?.toLowerCase();
+          
+          if (ext === 'js') {
+            headers.set('Content-Type', 'application/javascript');
+          } else if (ext === 'css') {
+            headers.set('Content-Type', 'text/css');
+          } else if (ext === 'html') {
+            headers.set('Content-Type', 'text/html');
+          }
+          
+          Object.entries(corsHeaders).forEach(([key, value]) => {
+            headers.set(key, value);
+          });
+          
+          assetResponse = new Response(asset, { status: 200, headers });
+          console.log('Legacy static content served:', assetKey);
+        }
+      } catch (legacyError) {
+        console.error('Legacy static content error:', legacyError);
+      }
     }
     
     if (assetResponse && assetResponse.status === 200) {
@@ -116,25 +151,53 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
     // If asset not found and it's not an API route, serve index.html for SPA routing
     if (!url.pathname.startsWith('/api/')) {
       console.log('Serving index.html for SPA routing');
-      try {
-        const indexRequest = new Request(new URL('/index.html', request.url), request);
-        const indexResponse = await env.ASSETS.fetch(indexRequest);
-        
-        if (indexResponse && indexResponse.status === 200) {
-          const headers = new Headers(indexResponse.headers);
-          headers.set('Content-Type', 'text/html');
-          headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
-          Object.entries(corsHeaders).forEach(([key, value]) => {
-            headers.set(key, value);
-          });
+      
+      // Try modern Assets API for index.html
+      if (env.ASSETS) {
+        try {
+          const indexRequest = new Request(new URL('/index.html', request.url), request);
+          const indexResponse = await env.ASSETS.fetch(indexRequest);
           
-          return new Response(indexResponse.body, {
-            status: 200,
-            headers,
-          });
+          if (indexResponse && indexResponse.status === 200) {
+            const headers = new Headers(indexResponse.headers);
+            headers.set('Content-Type', 'text/html');
+            headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
+            Object.entries(corsHeaders).forEach(([key, value]) => {
+              headers.set(key, value);
+            });
+            
+            return new Response(indexResponse.body, {
+              status: 200,
+              headers,
+            });
+          }
+        } catch (error) {
+          console.error('Error serving index.html via Assets API:', error);
         }
-      } catch (error) {
-        console.error('Error serving index.html:', error);
+      }
+      
+      // Fallback to legacy static content for index.html
+      if ((globalThis as any).__STATIC_CONTENT) {
+        try {
+          const staticContent = (globalThis as any).__STATIC_CONTENT;
+          const indexHtml = await staticContent.get('index.html', 'text');
+          
+          if (indexHtml) {
+            const headers = new Headers();
+            headers.set('Content-Type', 'text/html');
+            headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
+            Object.entries(corsHeaders).forEach(([key, value]) => {
+              headers.set(key, value);
+            });
+            
+            return new Response(indexHtml, {
+              status: 200,
+              headers,
+            });
+          }
+        } catch (error) {
+          console.error('Error serving index.html via legacy static content:', error);
+        }
       }
     }
     
@@ -151,25 +214,53 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
     const url = new URL(request.url);
     if (!url.pathname.startsWith('/api/')) {
       console.log('Fallback: serving index.html due to error');
-      try {
-        const indexRequest = new Request(new URL('/index.html', request.url), request);
-        const indexResponse = await env.ASSETS.fetch(indexRequest);
-        
-        if (indexResponse && indexResponse.status === 200) {
-          const headers = new Headers();
-          headers.set('Content-Type', 'text/html');
-          headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
-          Object.entries(corsHeaders).forEach(([key, value]) => {
-            headers.set(key, value);
-          });
+      
+      // Try both modern and legacy approaches for maximum compatibility
+      if (env.ASSETS) {
+        try {
+          const indexRequest = new Request(new URL('/index.html', request.url), request);
+          const indexResponse = await env.ASSETS.fetch(indexRequest);
           
-          return new Response(indexResponse.body, {
-            status: 200,
-            headers,
-          });
+          if (indexResponse && indexResponse.status === 200) {
+            const headers = new Headers();
+            headers.set('Content-Type', 'text/html');
+            headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
+            Object.entries(corsHeaders).forEach(([key, value]) => {
+              headers.set(key, value);
+            });
+            
+            return new Response(indexResponse.body, {
+              status: 200,
+              headers,
+            });
+          }
+        } catch (fallbackError) {
+          console.error('Fallback Assets API error:', fallbackError);
         }
-      } catch (fallbackError) {
-        console.error('Fallback index.html error:', fallbackError);
+      }
+      
+      // Final fallback to legacy static content
+      if ((globalThis as any).__STATIC_CONTENT) {
+        try {
+          const staticContent = (globalThis as any).__STATIC_CONTENT;
+          const indexHtml = await staticContent.get('index.html', 'text');
+          
+          if (indexHtml) {
+            const headers = new Headers();
+            headers.set('Content-Type', 'text/html');
+            headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
+            Object.entries(corsHeaders).forEach(([key, value]) => {
+              headers.set(key, value);
+            });
+            
+            return new Response(indexHtml, {
+              status: 200,
+              headers,
+            });
+          }
+        } catch (fallbackError) {
+          console.error('Fallback legacy static content error:', fallbackError);
+        }
       }
     }
     
