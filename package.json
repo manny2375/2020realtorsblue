@@ -5,15 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:worker": "wrangler dev",
+    "dev:full": "npm run build && wrangler dev",
     "build": "vite build",
+    "build:worker": "npm run build && wrangler deploy",
     "lint": "eslint .",
     "preview": "vite preview",
+    "deploy": "npm run build && wrangler deploy",
     "db:init": "wrangler d1 execute 2020realtors-blue --file=./supabase/migrations/20250703052040_young_haze.sql",
     "db:seed": "wrangler d1 execute 2020realtors-blue --file=./supabase/migrations/20250703052100_white_hall.sql",
     "db:email": "wrangler d1 execute 2020realtors-blue --file=./supabase/migrations/20250703052200_email_system.sql",
     "db:reset": "npm run db:init && npm run db:seed && npm run db:email",
-    "worker:dev": "wrangler dev",
-    "worker:deploy": "wrangler deploy",
     "secrets:setup": "echo 'Run: wrangler secret put SENDGRID_API_KEY'"
   },
   "dependencies": {

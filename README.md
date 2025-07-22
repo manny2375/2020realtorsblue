@@ -1,6 +1,6 @@
 # Real Estate Application with Cloudflare D1 & SendGrid
 
-A modern real estate application built with React, TypeScript, Cloudflare D1 database, and SendGrid email notifications.
+A modern real estate application built with React, TypeScript, running entirely on Cloudflare Workers with D1 database and SendGrid email notifications.
 
 ## Features
 
@@ -17,10 +17,11 @@ A modern real estate application built with React, TypeScript, Cloudflare D1 dat
 
 ## Tech Stack
 
-- **Frontend**: React 18, TypeScript, Tailwind CSS, Vite
-- **Backend**: Cloudflare Workers
+- **Frontend & Backend**: Cloudflare Workers (unified deployment)
+- **Frontend**: React 18, TypeScript, Tailwind CSS, Vite 7
+- **Backend**: Cloudflare Workers with D1 & KV
 - **Database**: Cloudflare D1 (SQLite)
-- **Storage**: Cloudflare KV (Caching, Sessions, Analytics)
+- **Storage**: Cloudflare KV (Caching, Sessions, Analytics, Static Assets)
 - **Email**: SendGrid API
 - **Authentication**: Custom JWT-based auth
 - **Icons**: Lucide React
@@ -86,7 +87,9 @@ You can create custom email templates in SendGrid and reference them by ID, or u
 
 ## Development
 
-### Frontend Development
+### Development Modes
+
+#### Option 1: Frontend Only (for UI development)
 
 ```bash
 # Install dependencies
@@ -96,12 +99,17 @@ npm install
 npm run dev
 ```
 
-### Worker Development
+#### Option 2: Full Stack Development (recommended)
 
 ```bash
-# Start Cloudflare Worker locally
-npm run worker:dev
+# Build frontend and start worker with static files
+npm run dev:full
+
+# Or run worker only (if frontend already built)
+npm run dev:worker
 ```
+
+The full stack development server runs on `http://localhost:8787` and serves both the React frontend and the API backend.
 
 ### Database Operations
 
@@ -250,11 +258,22 @@ FROM_NAME=20/20 Realtors
 
 ### Production (Cloudflare Dashboard)
 - `JWT_SECRET` - Strong secret for JWT signing
-- `CORS_ORIGIN` - Your frontend domain
+- `CORS_ORIGIN` - Set to "*" for unified deployment
 - `SENDGRID_API_KEY` - SendGrid API key (secret)
 - `FROM_EMAIL` - Sender email address
 - `FROM_NAME` - Sender name
 
+## Development vs Production
+
+### Development
+- **Frontend**: `npm run dev` (Vite dev server on :5173)
+- **Backend**: `npm run dev:worker` (Worker on :8787)
+- **Full Stack**: `npm run dev:full` (Everything on :8787)
+
+### Production
+- **Single URL**: Everything served from your Cloudflare Workers domain
+- **Global CDN**: Automatic worldwide distribution
+- **Edge Computing**: API runs at the edge for low latency
 ## KV Service Usage
 
 The application uses Cloudflare KV for:
@@ -277,7 +296,13 @@ await kv.setSession(sessionToken, userData);
 const user = await kv.getSession(sessionToken);
 ```
 
-### 3. Rate Limiting
+### 3. Static Asset Storage
+```typescript
+// Static files are automatically stored in KV during deployment
+// Worker serves them with appropriate caching headers
+```
+
+### 4. Rate Limiting
 ```typescript
 // Check rate limit
 const rateLimit = await kv.checkRateLimit(identifier, 10, 3600);
@@ -286,7 +311,7 @@ if (!rateLimit.allowed) {
 }
 ```
 
-### 4. Analytics
+### 5. Analytics
 ```typescript
 // Track metrics
 await kv.incrementMetric('property_views');
@@ -309,23 +334,68 @@ Templates support dynamic variables and can be customized in the EmailService cl
 
 ## Deployment
 
-### Deploy Worker
+### Single Command Deployment
 
 ```bash
-# Deploy to Cloudflare
-npm run worker:deploy
+# Build frontend and deploy everything to Cloudflare Workers
+npm run deploy
 ```
 
-### Deploy Frontend
+This single command:
+1. **Builds the React frontend** with Vite
+2. **Uploads static assets** to Cloudflare KV
+3. **Deploys the Worker** with both API and static file serving
+4. **Configures routing** for SPA (Single Page Application)
 
-The frontend can be deployed to any static hosting service:
+### Manual Deployment Steps
 
 ```bash
-# Build for production
+# 1. Build the frontend
 npm run build
 
-# Deploy dist/ folder to your hosting service
+# 2. Deploy worker with static assets
+wrangler deploy
 ```
+
+## Architecture Overview
+
+### Unified Cloudflare Workers Deployment
+
+```
+┌─────────────────────────────────────────┐
+│           Cloudflare Worker             │
+├─────────────────────────────────────────┤
+│  ┌─────────────┐  ┌─────────────────┐   │
+│  │   Frontend  │  │   Backend API   │   │
+│  │   (React)   │  │   (REST API)    │   │
+│  │             │  │                 │   │
+│  │ Static Files│  │ /api/* routes   │   │
+│  │ SPA Routing │  │ Authentication  │   │
+│  │             │  │ Database Ops    │   │
+│  └─────────────┘  └─────────────────┘   │
+├─────────────────────────────────────────┤
+│              Services                   │
+│  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐   │
+│  │  D1  │ │  KV  │ │Email │ │Cache │   │
+│  │ DB   │ │Store │ │ API  │ │Layer │   │
+│  └──────┘ └──────┘ └──────┘ └──────┘   │
+└─────────────────────────────────────────┘
+```
+
+### Request Routing
+
+1. **API Requests** (`/api/*`) → Backend handlers
+2. **Static Assets** (`/assets/*`, `.js`, `.css`, etc.) → Cached static files
+3. **SPA Routes** (everything else) → `index.html` for client-side routing
+
+### Benefits of Unified Deployment
+
+- **Single deployment** for entire application
+- **Global CDN** distribution automatically
+- **Zero cold starts** for static content
+- **Integrated caching** with KV storage
+- **Cost effective** - no separate hosting needed
+- **Simplified DevOps** - one service to manage
 
 ## SendGrid Configuration
 

@@ -4,9 +4,13 @@ import { AuthManager } from './lib/auth';
 import { EmailService } from './lib/email';
 import { KVManager } from './lib/kv';
 
+// Import static assets manifest (will be generated during build)
+declare const __STATIC_CONTENT_MANIFEST: string;
+
 export interface Env {
   DB: D1Database;
   KV: KVNamespace;
+  __STATIC_CONTENT: KVNamespace;
   JWT_SECRET: string;
   CORS_ORIGIN: string;
   ENVIRONMENT: string;
@@ -24,17 +28,17 @@ const corsHeaders = {
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    // Handle CORS preflight requests
-    if (request.method === 'OPTIONS') {
-      return new Response(null, {
-        status: 200,
-        headers: corsHeaders,
-      });
-    }
-
     try {
       const url = new URL(request.url);
       const path = url.pathname;
+
+      // Handle CORS preflight requests
+      if (request.method === 'OPTIONS') {
+        return new Response(null, {
+          status: 200,
+          headers: corsHeaders,
+        });
+      }
 
       // Initialize database, auth, and email managers
       const db = new DatabaseManager(env.DB);
@@ -52,11 +56,8 @@ export default {
         return await handleApiRequest(request, path, db, auth, email, kv, env);
       }
 
-      // Default response for non-API routes
-      return new Response('Real Estate API', {
-        status: 200,
-        headers: corsHeaders,
-      });
+      // Serve static files for frontend
+      return await handleStaticRequest(request, env);
 
     } catch (error) {
       console.error('Worker error:', error);
@@ -73,6 +74,101 @@ export default {
     }
   },
 };
+
+// Handle static file requests for the frontend
+async function handleStaticRequest(request: Request, env: Env): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    let pathname = url.pathname;
+
+    // Handle root path
+    if (pathname === '/') {
+      pathname = '/index.html';
+    }
+
+    // Handle SPA routing - serve index.html for non-asset routes
+    if (!pathname.includes('.') && !pathname.startsWith('/api/')) {
+      pathname = '/index.html';
+    }
+
+    // Remove leading slash for KV key
+    const key = pathname.startsWith('/') ? pathname.slice(1) : pathname;
+
+    // Try to get the file from KV storage
+    const file = await env.__STATIC_CONTENT.get(key, { type: 'arrayBuffer' });
+    
+    if (!file) {
+      // If file not found and it's not an API route, serve index.html for SPA routing
+      if (!pathname.startsWith('/api/')) {
+        const indexFile = await env.__STATIC_CONTENT.get('index.html', { type: 'arrayBuffer' });
+        if (indexFile) {
+          return new Response(indexFile, {
+            headers: {
+              'Content-Type': 'text/html',
+              'Cache-Control': 'public, max-age=0, must-revalidate',
+              ...corsHeaders,
+            },
+          });
+        }
+      }
+      
+      return new Response('Not Found', { 
+        status: 404,
+        headers: corsHeaders,
+      });
+    }
+
+    // Determine content type based on file extension
+    const contentType = getContentType(pathname);
+    
+    // Set appropriate cache headers
+    const cacheControl = pathname.includes('/assets/') || pathname.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2)$/)
+      ? 'public, max-age=31536000, immutable' // 1 year for assets
+      : 'public, max-age=0, must-revalidate'; // No cache for HTML
+
+    return new Response(file, {
+      headers: {
+        'Content-Type': contentType,
+        'Cache-Control': cacheControl,
+        ...corsHeaders,
+      },
+    });
+
+  } catch (error) {
+    console.error('Static file error:', error);
+    return new Response('Internal Server Error', { 
+      status: 500,
+      headers: corsHeaders,
+    });
+  }
+}
+
+// Get content type based on file extension
+function getContentType(pathname: string): string {
+  const ext = pathname.split('.').pop()?.toLowerCase();
+  
+  const mimeTypes: Record<string, string> = {
+    'html': 'text/html',
+    'css': 'text/css',
+    'js': 'application/javascript',
+    'json': 'application/json',
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'gif': 'image/gif',
+    'svg': 'image/svg+xml',
+    'ico': 'image/x-icon',
+    'woff': 'font/woff',
+    'woff2': 'font/woff2',
+    'ttf': 'font/ttf',
+    'eot': 'application/vnd.ms-fontobject',
+    'txt': 'text/plain',
+    'xml': 'application/xml',
+    'pdf': 'application/pdf',
+  };
+
+  return mimeTypes[ext || ''] || 'application/octet-stream';
+}
 
 async function handleApiRequest(
   request: Request,

@@ -3,6 +3,11 @@
 name = "real-estate-app"
 main = "src/worker.ts"
 compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Static site configuration
+[site]
+bucket = "./dist"
 
 # D1 Database binding
 [[d1_databases]]
@@ -20,7 +25,7 @@ preview_id = "618011e98fa14216abb90d2618637ee5"
 [vars]
 ENVIRONMENT = "development"
 JWT_SECRET = "your-jwt-secret-here"
-CORS_ORIGIN = "http://localhost:5173"
+CORS_ORIGIN = "*"
 FROM_EMAIL = "info@2020realtors.com"
 FROM_NAME = "20/20 Realtors"
 
@@ -28,13 +33,14 @@ FROM_NAME = "20/20 Realtors"
 [env.production]
 [env.production.vars]
 ENVIRONMENT = "production"
-CORS_ORIGIN = "https://your-domain.com"
+CORS_ORIGIN = "*"
 FROM_EMAIL = "info@2020realtors.com"
 FROM_NAME = "20/20 Realtors"
 
 # Development commands
 [dev]
 local = true
+port = 8787
 
 # Secrets (set these using wrangler secret put)
 # SENDGRID_API_KEY = "your-sendgrid-api-key"

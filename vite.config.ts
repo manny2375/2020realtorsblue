@@ -8,12 +8,19 @@ export default defineConfig({
     port: 5173,
     host: true
   },
+  base: '/',
   build: {
     target: 'esnext',
     minify: 'esbuild',
     sourcemap: false,
+    outDir: 'dist',
+    assetsDir: 'assets',
+    emptyOutDir: true,
     rollupOptions: {
       output: {
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
         manualChunks: {
           vendor: ['react', 'react-dom'],
           utils: ['lucide-react']
