@@ -3,13 +3,19 @@ main = "src/worker.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Static Assets Configuration (Modern Approach)
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
 # D1 Database binding
 [[d1_databases]]
 binding = "DB"
 database_name = "2020realtors-blue"
 database_id = "f097b3e5-625a-44bb-b4d5-3294feee76ed"
 
-# KV Namespace binding
+# KV Namespace binding (for caching and sessions)
 [[kv_namespaces]]
 binding = "KV"
 id = "618011e98fa14216abb90d2618637ee5"
