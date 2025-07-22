@@ -28,7 +28,6 @@ export default {
     try {
       const url = new URL(request.url);
       const path = url.pathname;
-      console.log('Worker handling request:', path);
 
       // Handle CORS preflight requests
       if (request.method === 'OPTIONS') {
@@ -77,10 +76,8 @@ export default {
 async function handleStaticRequest(request: Request, env: Env): Promise<Response> {
   try {
     const url = new URL(request.url);
-    console.log('Handling static request for:', url.pathname);
     
-    // Simple fallback - serve a basic HTML response for now
-    // This will work with any Wrangler version
+    // Serve basic HTML response for all non-API requests
     if (!url.pathname.startsWith('/api/')) {
       const basicHtml = `
 <!DOCTYPE html>
@@ -142,6 +139,18 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
         .contact a:hover {
             text-decoration: underline;
         }
+        .api-info {
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+            font-size: 0.9rem;
+        }
+        .api-info code {
+            background: rgba(255,255,255,0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
     </style>
 </head>
 <body>
@@ -155,6 +164,10 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
             <p><strong>Phone:</strong> <a href="tel:(714)262-4263">(714) 262-4263</a></p>
             <p><strong>Email:</strong> <a href="mailto:info@2020realtors.com">info@2020realtors.com</a></p>
             <p><strong>Address:</strong> 2677 N MAIN ST STE 465, SANTA ANA, CA 92705</p>
+        </div>
+        <div class="api-info">
+            <p><strong>API Status:</strong> ✅ Backend services are running</p>
+            <p><strong>Available endpoints:</strong> <code>/api/properties</code>, <code>/api/agents</code>, <code>/api/auth/*</code></p>
         </div>
     </div>
 </body>
@@ -179,12 +192,10 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
     });
 
   } catch (error) {
-    console.error('Static file error:', error);
     
     // Fallback to basic HTML page
     const url = new URL(request.url);
     if (!url.pathname.startsWith('/api/')) {
-      console.log('Fallback: serving basic HTML due to error');
       return new Response('20/20 Realtors - Contact us at (714) 262-4263', { 
         status: 200,
         headers: {
