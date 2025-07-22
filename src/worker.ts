@@ -76,6 +76,7 @@ export default {
 async function handleStaticRequest(request: Request, env: Env): Promise<Response> {
   try {
     const url = new URL(request.url);
+    const pathname = url.pathname;
     
     // Serve basic HTML response for all non-API requests
     // Try to serve static files from KV first (if available)
@@ -391,7 +392,7 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
         headers: {
           'Content-Type': 'text/html; charset=utf-8',
           ...corsHeaders,
-        </div>
+        },
       });
     }
     
@@ -406,45 +407,6 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
 async function uploadAssetsToKV(env: Env) {
   // This would be called during deployment to upload the built files
   // For now, we'll rely on the dynamic loading approach
-}
-      
-      const headers = new Headers();
-      headers.set('Content-Type', 'text/html');
-      headers.set('Cache-Control', 'public, max-age=300');
-      Object.entries(corsHeaders).forEach(([key, value]) => {
-        headers.set(key, value);
-      });
-      
-      return new Response(basicHtml, {
-        status: 200,
-        headers,
-      });
-    }
-    
-    return new Response('Not Found', { 
-      status: 404,
-      headers: corsHeaders,
-    });
-
-  } catch (error) {
-    
-    // Fallback to basic HTML page
-    const url = new URL(request.url);
-    if (!url.pathname.startsWith('/api/')) {
-      return new Response('20/20 Realtors - Contact us at (714) 262-4263', { 
-        status: 200,
-        headers: {
-          'Content-Type': 'text/html',
-          ...corsHeaders,
-        },
-      });
-    }
-    
-    return new Response('Internal Server Error', { 
-      status: 500,
-      headers: corsHeaders,
-    });
-  }
 }
 
 
