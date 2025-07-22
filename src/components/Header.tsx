@@ -188,7 +188,7 @@ export default function Header({ currentPage, onPageChange, showSignInModal, set
                   </button>
                   <button
                     onClick={openRegisterModal}
-                    className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-slate-900 px-6 py-2 rounded-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+                    className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-2 rounded-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
                   >
                     Register
                   </button>
@@ -280,7 +280,7 @@ export default function Header({ currentPage, onPageChange, showSignInModal, set
                       openRegisterModal();
                       setIsMenuOpen(false);
                     }}
-                    className="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 text-slate-900 px-4 py-3 rounded-lg font-semibold"
+                    className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-3 rounded-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
                   >
                     Register
                   </button>
