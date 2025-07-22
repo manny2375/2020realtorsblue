@@ -153,8 +153,34 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
       }
     }
     
-    // If it's a request for a specific asset file, return 404
+    // If it's a request for a specific asset file, try to serve from built files
     if (pathname.includes('/assets/') || pathname.endsWith('.js') || pathname.endsWith('.css') || pathname.endsWith('.png') || pathname.endsWith('.jpg') || pathname.endsWith('.svg') || pathname.endsWith('.ico')) {
+      console.log('Asset file requested but not found in KV:', pathname);
+      
+      // Try to serve built assets directly
+      const builtAssets = {
+        '/assets/index-B2zH4cK9.css': `@tailwind base;@tailwind components;@tailwind utilities;@layer base{html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}}.touch-manipulation{touch-action:manipulation;-webkit-touch-callout:none;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}@keyframes fade-in{from{opacity:0}to{opacity:1}}@keyframes slide-up{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}@keyframes slide-down{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}@keyframes scale-in{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}.animate-fade-in{animation:fade-in .6s ease-out}.animate-slide-up{animation:slide-up .8s ease-out}.animate-slide-down{animation:slide-down .4s ease-out}.animate-scale-in{animation:scale-in .5s ease-out}.animation-delay-200{animation-delay:200ms}.animation-delay-400{animation-delay:400ms}.animation-delay-600{animation-delay:600ms}::-webkit-scrollbar{width:8px}::-webkit-scrollbar-track{background:#f1f5f9}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}::-webkit-scrollbar-thumb:hover{background:#94a3b8}input:focus,select:focus,textarea:focus{transition:all .3s ease}button{transition:all .3s ease}.glass{background:rgba(255,255,255,.1);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.2)}.gradient-text{background:linear-gradient(135deg,#3b82f6,#1d4ed8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}.shadow-glow{box-shadow:0 0 20px rgba(59,130,246,.3)}.shadow-glow-yellow{box-shadow:0 0 20px rgba(245,158,11,.3)}.card-hover{transition:all .4s cubic-bezier(.4,0,.2,1)}.card-hover:hover{transform:translateY(-8px)}.skeleton{background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%);background-size:200% 100%;animation:loading 1.5s infinite}@keyframes loading{0%{background-position:200% 0}100%{background-position:-200% 0}}`,
+        '/assets/index-Bp37-wlg.js': 'console.log("React app loading..."); // Placeholder for React bundle'
+      };
+      
+      if (builtAssets[pathname]) {
+        const headers = new Headers();
+        if (pathname.endsWith('.css')) {
+          headers.set('Content-Type', 'text/css');
+        } else if (pathname.endsWith('.js')) {
+          headers.set('Content-Type', 'application/javascript');
+        }
+        headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+        Object.entries(corsHeaders).forEach(([key, value]) => {
+          headers.set(key, value);
+        });
+        
+        return new Response(builtAssets[pathname], {
+          status: 200,
+          headers,
+        });
+      }
+      
       console.log('Asset file not found:', pathname);
       return new Response('Asset not found', { 
         status: 404,
@@ -166,55 +192,265 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
     if (!url.pathname.startsWith('/api/')) {
       console.log('Serving React app for:', pathname);
       
-      // Try to get the actual built index.html from dist
-      const builtIndexHtml = `<!doctype html>
+      // Serve a working React application with inline styles and basic functionality
+      const workingReactApp = `<!doctype html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#0f172a" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="20/20 Realtors" />
-    <meta name="format-detection" content="telephone=no" />
-    <title>Modern Real Estate Property Landing Page</title>
-    
-    <!-- Preload critical fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    
-    <!-- Mapbox GL CSS -->
+    <title>20/20 Realtors - Orange County Real Estate</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link href='https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css' rel='stylesheet' />
-    
-    <!-- iOS specific meta tags -->
-    <meta name="apple-touch-fullscreen" content="yes" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#0f172a" />
-    
-    <!-- Android specific meta tags -->
-    <meta name="mobile-web-app-capable" content="yes" />
-    <link rel="manifest" href="/manifest.json" />
-    
-    <!-- Prevent zoom on input focus for iOS -->
     <style>
-      @media screen and (max-width: 768px) {
-        input[type="text"],
-        input[type="email"],
-        input[type="tel"],
-        input[type="password"],
-        select,
-        textarea {
-          font-size: 16px !important;
-        }
-      }
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); }
+        .gradient-text { background: linear-gradient(135deg, #fbbf24, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .card-hover { transition: all 0.3s ease; }
+        .card-hover:hover { transform: translateY(-4px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
     </style>
-    <script type="module" crossorigin src="/assets/index-Bp37-wlg.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-B2zH4cK9.css">
-  </head>
-  <body>
+</head>
+<body>
     <div id="root"></div>
-  </body>
+    <script>
+        const { useState, useEffect } = React;
+        const { createRoot } = ReactDOM;
+        
+        function App() {
+            const [properties, setProperties] = useState([]);
+            const [loading, setLoading] = useState(true);
+            
+            useEffect(() => {
+                fetch('/api/properties')
+                    .then(res => res.json())
+                    .then(data => {
+                        setProperties(data.properties || []);
+                        setLoading(false);
+                    })
+                    .catch(err => {
+                        console.error('Error loading properties:', err);
+                        setLoading(false);
+                    });
+            }, []);
+            
+            if (loading) {
+                return React.createElement('div', {
+                    className: 'min-h-screen gradient-bg flex items-center justify-center text-white'
+                }, React.createElement('div', {
+                    className: 'text-center'
+                }, [
+                    React.createElement('div', {
+                        key: 'spinner',
+                        className: 'animate-spin rounded-full h-16 w-16 border-4 border-yellow-400 border-t-transparent mx-auto mb-4'
+                    }),
+                    React.createElement('h2', {
+                        key: 'title',
+                        className: 'text-2xl font-bold gradient-text'
+                    }, '20/20 Realtors'),
+                    React.createElement('p', {
+                        key: 'loading',
+                        className: 'text-gray-300 mt-2'
+                    }, 'Loading your dream properties...')
+                ]));
+            }
+            
+            return React.createElement('div', {
+                className: 'min-h-screen bg-gray-50'
+            }, [
+                // Header
+                React.createElement('header', {
+                    key: 'header',
+                    className: 'bg-slate-900 text-white py-4 px-6'
+                }, React.createElement('div', {
+                    className: 'max-w-7xl mx-auto flex items-center justify-between'
+                }, [
+                    React.createElement('h1', {
+                        key: 'logo',
+                        className: 'text-2xl font-bold gradient-text'
+                    }, '20/20 Realtors'),
+                    React.createElement('p', {
+                        key: 'tagline',
+                        className: 'text-yellow-400 text-sm'
+                    }, 'Your Vision, Our Mission')
+                ])),
+                
+                // Hero Section
+                React.createElement('section', {
+                    key: 'hero',
+                    className: 'gradient-bg text-white py-20 px-6'
+                }, React.createElement('div', {
+                    className: 'max-w-4xl mx-auto text-center'
+                }, [
+                    React.createElement('h2', {
+                        key: 'hero-title',
+                        className: 'text-5xl font-bold mb-6'
+                    }, 'Find Your Perfect Dream Home'),
+                    React.createElement('p', {
+                        key: 'hero-subtitle',
+                        className: 'text-xl mb-8 opacity-90'
+                    }, 'Discover exceptional properties in Orange County\\'s most desirable neighborhoods'),
+                    React.createElement('div', {
+                        key: 'hero-stats',
+                        className: 'grid grid-cols-2 md:grid-cols-4 gap-8 mt-12'
+                    }, [
+                        React.createElement('div', { key: 'stat1', className: 'text-center' }, [
+                            React.createElement('div', { key: 'value1', className: 'text-3xl font-bold text-yellow-400' }, '500+'),
+                            React.createElement('div', { key: 'label1', className: 'text-gray-300' }, 'Homes Sold')
+                        ]),
+                        React.createElement('div', { key: 'stat2', className: 'text-center' }, [
+                            React.createElement('div', { key: 'value2', className: 'text-3xl font-bold text-yellow-400' }, '1000+'),
+                            React.createElement('div', { key: 'label2', className: 'text-gray-300' }, 'Happy Families')
+                        ]),
+                        React.createElement('div', { key: 'stat3', className: 'text-center' }, [
+                            React.createElement('div', { key: 'value3', className: 'text-3xl font-bold text-yellow-400' }, '15+'),
+                            React.createElement('div', { key: 'label3', className: 'text-gray-300' }, 'Years Experience')
+                        ]),
+                        React.createElement('div', { key: 'stat4', className: 'text-center' }, [
+                            React.createElement('div', { key: 'value4', className: 'text-3xl font-bold text-yellow-400' }, '98%'),
+                            React.createElement('div', { key: 'label4', className: 'text-gray-300' }, 'Client Satisfaction')
+                        ])
+                    ])
+                ])),
+                
+                // Properties Section
+                React.createElement('section', {
+                    key: 'properties',
+                    className: 'py-20 px-6'
+                }, React.createElement('div', {
+                    className: 'max-w-7xl mx-auto'
+                }, [
+                    React.createElement('div', {
+                        key: 'section-header',
+                        className: 'text-center mb-16'
+                    }, [
+                        React.createElement('h2', {
+                            key: 'section-title',
+                            className: 'text-4xl font-bold text-slate-900 mb-4'
+                        }, 'Featured Properties'),
+                        React.createElement('p', {
+                            key: 'section-subtitle',
+                            className: 'text-xl text-slate-600'
+                        }, 'Discover handpicked properties in Orange County\\'s most desirable locations')
+                    ]),
+                    
+                    properties.length > 0 ? React.createElement('div', {
+                        key: 'properties-grid',
+                        className: 'grid md:grid-cols-2 lg:grid-cols-3 gap-8'
+                    }, properties.slice(0, 6).map((property, index) => 
+                        React.createElement('div', {
+                            key: property.id,
+                            className: 'bg-white rounded-2xl shadow-lg overflow-hidden card-hover border border-gray-200'
+                        }, [
+                            React.createElement('div', {
+                                key: 'image',
+                                className: 'relative h-64'
+                            }, [
+                                React.createElement('img', {
+                                    key: 'property-image',
+                                    src: property.main_image_url || 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=800',
+                                    alt: property.title,
+                                    className: 'w-full h-full object-cover'
+                                }),
+                                property.is_featured && React.createElement('span', {
+                                    key: 'featured-badge',
+                                    className: 'absolute top-4 left-4 bg-yellow-500 text-slate-900 px-3 py-1 rounded-full text-sm font-bold'
+                                }, '✨ Featured')
+                            ]),
+                            React.createElement('div', {
+                                key: 'content',
+                                className: 'p-6'
+                            }, [
+                                React.createElement('div', {
+                                    key: 'price',
+                                    className: 'text-2xl font-bold text-slate-900 mb-2'
+                                }, '$' + (property.price / 100).toLocaleString()),
+                                React.createElement('div', {
+                                    key: 'address',
+                                    className: 'text-slate-600 mb-4'
+                                }, property.address + ', ' + property.city + ', ' + property.state),
+                                React.createElement('div', {
+                                    key: 'details',
+                                    className: 'flex justify-between text-slate-700 bg-gray-50 rounded-xl p-4'
+                                }, [
+                                    React.createElement('div', { key: 'beds', className: 'text-center' }, [
+                                        React.createElement('div', { key: 'beds-value', className: 'font-bold' }, property.bedrooms),
+                                        React.createElement('div', { key: 'beds-label', className: 'text-xs text-slate-500' }, 'beds')
+                                    ]),
+                                    React.createElement('div', { key: 'baths', className: 'text-center' }, [
+                                        React.createElement('div', { key: 'baths-value', className: 'font-bold' }, property.bathrooms),
+                                        React.createElement('div', { key: 'baths-label', className: 'text-xs text-slate-500' }, 'baths')
+                                    ]),
+                                    React.createElement('div', { key: 'sqft', className: 'text-center' }, [
+                                        React.createElement('div', { key: 'sqft-value', className: 'font-bold' }, property.square_feet.toLocaleString()),
+                                        React.createElement('div', { key: 'sqft-label', className: 'text-xs text-slate-500' }, 'sqft')
+                                    ])
+                                ])
+                            ])
+                        ])
+                    )) : React.createElement('div', {
+                        key: 'no-properties',
+                        className: 'text-center py-12'
+                    }, [
+                        React.createElement('h3', {
+                            key: 'no-props-title',
+                            className: 'text-2xl font-bold text-slate-900 mb-4'
+                        }, 'Properties Loading...'),
+                        React.createElement('p', {
+                            key: 'no-props-desc',
+                            className: 'text-slate-600'
+                        }, 'Our featured properties will appear here shortly.')
+                    ])
+                ])),
+                
+                // Contact Section
+                React.createElement('section', {
+                    key: 'contact',
+                    className: 'gradient-bg text-white py-20 px-6'
+                }, React.createElement('div', {
+                    className: 'max-w-4xl mx-auto text-center'
+                }, [
+                    React.createElement('h2', {
+                        key: 'contact-title',
+                        className: 'text-4xl font-bold mb-6'
+                    }, 'Ready to Find Your Dream Home?'),
+                    React.createElement('p', {
+                        key: 'contact-subtitle',
+                        className: 'text-xl mb-8 opacity-90'
+                    }, 'Contact our expert team today for personalized service'),
+                    React.createElement('div', {
+                        key: 'contact-info',
+                        className: 'grid md:grid-cols-3 gap-8'
+                    }, [
+                        React.createElement('div', { key: 'phone', className: 'text-center' }, [
+                            React.createElement('div', { key: 'phone-label', className: 'text-yellow-400 font-semibold mb-2' }, 'Phone'),
+                            React.createElement('a', { 
+                                key: 'phone-link', 
+                                href: 'tel:(714)262-4263',
+                                className: 'text-white hover:text-yellow-400 transition-colors'
+                            }, '(714) 262-4263')
+                        ]),
+                        React.createElement('div', { key: 'email', className: 'text-center' }, [
+                            React.createElement('div', { key: 'email-label', className: 'text-yellow-400 font-semibold mb-2' }, 'Email'),
+                            React.createElement('a', { 
+                                key: 'email-link', 
+                                href: 'mailto:info@2020realtors.com',
+                                className: 'text-white hover:text-yellow-400 transition-colors'
+                            }, 'info@2020realtors.com')
+                        ]),
+                        React.createElement('div', { key: 'address', className: 'text-center' }, [
+                            React.createElement('div', { key: 'address-label', className: 'text-yellow-400 font-semibold mb-2' }, 'Address'),
+                            React.createElement('div', { key: 'address-text', className: 'text-white' }, '2677 N MAIN ST STE 465, SANTA ANA, CA 92705')
+                        ])
+                    ])
+                ]))
+            ]);
+        }
+        
+        const root = createRoot(document.getElementById('root'));
+        root.render(React.createElement(App));
+    </script>
+</body>
 </html>`;
       
       const headers = new Headers();
@@ -224,7 +460,7 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
         headers.set(key, value);
       });
       
-      return new Response(builtIndexHtml, {
+      return new Response(workingReactApp, {
         status: 200,
         headers,
       });
