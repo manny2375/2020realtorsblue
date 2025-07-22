@@ -1,0 +1,43 @@
+{
+  "name": "vite-react-typescript-starter",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "db:init": "wrangler d1 execute 2020realtors-blue --file=./supabase/migrations/20250703052040_young_haze.sql",
+    "db:seed": "wrangler d1 execute 2020realtors-blue --file=./supabase/migrations/20250703052100_white_hall.sql",
+    "db:email": "wrangler d1 execute 2020realtors-blue --file=./supabase/migrations/20250703052200_email_system.sql",
+    "db:reset": "npm run db:init && npm run db:seed && npm run db:email",
+    "worker:dev": "wrangler dev",
+    "worker:deploy": "wrangler deploy",
+    "secrets:setup": "echo 'Run: wrangler secret put SENDGRID_API_KEY'"
+  },
+  "dependencies": {
+    "lucide-react": "^0.344.0",
+    "mapbox-gl": "^3.0.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241127.0",
+    "@eslint/js": "^9.9.1",
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.18",
+    "eslint": "^9.9.1",
+    "eslint-plugin-react-hooks": "^5.1.0-rc.0",
+    "eslint-plugin-react-refresh": "^0.4.11",
+    "globals": "^15.9.0",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.5.3",
+    "typescript-eslint": "^8.3.0",
+    "vite": "^5.4.2",
+    "wrangler": "^3.84.0"
+  }
+}
