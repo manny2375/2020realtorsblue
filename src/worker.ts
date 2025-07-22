@@ -182,7 +182,7 @@ async function handleApiRequest(
       
       // Rate limiting for registration
       const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
-      const rateLimit = await kv.checkRateLimit(`register:${clientIP}`, 5, 3600); // 5 per hour
+      const rateLimit = await kv.checkRateLimit(\`register:${clientIP}`, 5, 3600); // 5 per hour
       
       if (!rateLimit.allowed) {
         return jsonResponse({ 
@@ -652,4 +652,10 @@ function jsonResponse(data: any, status = 200): Response {
       ...corsHeaders,
     },
   });
+}
+          )
+        }
+      }
+    }
+  }
 }
