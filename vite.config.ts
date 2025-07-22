@@ -16,6 +16,7 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 2000, // Increase limit to suppress Mapbox warning
     rollupOptions: {
       output: {
         entryFileNames: 'assets/[name]-[hash].js',
@@ -23,7 +24,8 @@ export default defineConfig({
         assetFileNames: 'assets/[name]-[hash].[ext]',
         manualChunks: {
           vendor: ['react', 'react-dom'],
-          utils: ['lucide-react']
+          utils: ['lucide-react'],
+          mapbox: ['mapbox-gl']
         }
       }
     }
