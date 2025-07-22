@@ -8,16 +8,17 @@
     "dev:worker": "wrangler dev --port 8787 --local",
     "dev:full": "npm run build && wrangler dev --port 8787 --local",
     "build": "vite build",
-    "build:worker": "npm run build && wrangler deploy",
+    "build:worker": "npm run build && npx wrangler deploy",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy": "npm run build && wrangler deploy",
-    "db:init": "wrangler d1 execute 2020realtors-blue --file=./supabase/migrations/20250703052040_young_haze.sql",
-    "db:seed": "wrangler d1 execute 2020realtors-blue --file=./supabase/migrations/20250703052100_white_hall.sql",
-    "db:email": "wrangler d1 execute 2020realtors-blue --file=./supabase/migrations/20250703052200_email_system.sql",
+    "deploy": "npm run build && npx wrangler deploy",
+    "db:init": "npx wrangler d1 execute 2020realtors-blue --file=./supabase/migrations/20250703052040_young_haze.sql",
+    "db:seed": "npx wrangler d1 execute 2020realtors-blue --file=./supabase/migrations/20250703052100_white_hall.sql",
+    "db:email": "npx wrangler d1 execute 2020realtors-blue --file=./supabase/migrations/20250703070600_autumn_pebble.sql",
     "db:reset": "npm run db:init && npm run db:seed && npm run db:email",
     "secrets:setup": "echo 'Run: wrangler secret put SENDGRID_API_KEY'",
-    "wrangler:update": "npm install --save-dev wrangler@latest"
+    "wrangler:update": "npm install --save-dev wrangler@latest",
+    "cf:deploy": "npx wrangler deploy"
   },
   "dependencies": {
     "lucide-react": "^0.344.0",

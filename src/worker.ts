@@ -75,8 +75,16 @@ export default {
 // Handle static file requests for the frontend
 async function handleStaticRequest(request: Request, env: Env): Promise<Response> {
   try {
-    // Try to serve the static asset using the new Assets binding
-    const assetResponse = await env.ASSETS.fetch(request);
+    const url = new URL(request.url);
+    
+    // Try to serve the static asset using the Assets binding
+    let assetResponse;
+    try {
+      assetResponse = await env.ASSETS.fetch(request);
+    } catch (error) {
+      console.log('Assets fetch error:', error);
+      assetResponse = new Response(null, { status: 404 });
+    }
     
     if (assetResponse.status === 200) {
       // Add CORS headers to the asset response
@@ -92,7 +100,6 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
     }
     
     // If asset not found and it's not an API route, serve index.html for SPA routing
-    const url = new URL(request.url);
     if (!url.pathname.startsWith('/api/')) {
       const indexRequest = new Request(new URL('/index.html', request.url), request);
       const indexResponse = await env.ASSETS.fetch(indexRequest);

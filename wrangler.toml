@@ -1,11 +1,12 @@
 # Cloudflare Workers configuration for the real estate application
+# Modern Wrangler 4 configuration
 
 name = "real-estate-app"
 main = "src/worker.ts"
 compatibility_date = "2024-01-01"
-compatibility_flags = ["nodejs_compat", "experimental"]
+compatibility_flags = ["nodejs_compat"]
 
-# Assets configuration for Wrangler 4
+# Modern Assets configuration for Wrangler 4
 [assets]
 directory = "./dist"
 binding = "ASSETS"
@@ -26,6 +27,10 @@ preview_id = "618011e98fa14216abb90d2618637ee5"
 [vars]
 ENVIRONMENT = "development"
 JWT_SECRET = "your-jwt-secret-here"
+CORS_ORIGIN = "*"
+FROM_EMAIL = "info@2020realtors.com"
+FROM_NAME = "20/20 Realtors"
+
 # Production environment
 [env.production]
 [env.production.vars]
