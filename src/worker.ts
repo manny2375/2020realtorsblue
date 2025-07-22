@@ -76,13 +76,32 @@ export default {
 async function handleStaticRequest(request: Request, env: Env): Promise<Response> {
   try {
     const url = new URL(request.url);
+    console.log('Handling static request for:', url.pathname);
     
     // Try to serve the static asset using the modern Assets binding
-    const assetResponse = await env.ASSETS.fetch(request);
+    let assetResponse;
+    try {
+      assetResponse = await env.ASSETS.fetch(request);
+      console.log('Asset response status:', assetResponse?.status);
+    } catch (assetError) {
+      console.error('Asset fetch error:', assetError);
+      assetResponse = null;
+    }
     
     if (assetResponse && assetResponse.status === 200) {
       // Clone the response and add CORS headers
       const headers = new Headers(assetResponse.headers);
+      
+      // Set proper content type based on file extension
+      const ext = url.pathname.split('.').pop()?.toLowerCase();
+      if (ext === 'js') {
+        headers.set('Content-Type', 'application/javascript');
+      } else if (ext === 'css') {
+        headers.set('Content-Type', 'text/css');
+      } else if (ext === 'html') {
+        headers.set('Content-Type', 'text/html');
+      }
+      
       Object.entries(corsHeaders).forEach(([key, value]) => {
         headers.set(key, value);
       });
@@ -96,6 +115,7 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
     
     // If asset not found and it's not an API route, serve index.html for SPA routing
     if (!url.pathname.startsWith('/api/')) {
+      console.log('Serving index.html for SPA routing');
       try {
         const indexRequest = new Request(new URL('/index.html', request.url), request);
         const indexResponse = await env.ASSETS.fetch(indexRequest);
@@ -118,6 +138,7 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
       }
     }
     
+    console.log('Asset not found, returning 404');
     return new Response('Not Found', { 
       status: 404,
       headers: corsHeaders,
@@ -129,6 +150,7 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
     // If it's not an API route, try to serve index.html as fallback for SPA
     const url = new URL(request.url);
     if (!url.pathname.startsWith('/api/')) {
+      console.log('Fallback: serving index.html due to error');
       try {
         const indexRequest = new Request(new URL('/index.html', request.url), request);
         const indexResponse = await env.ASSETS.fetch(indexRequest);
