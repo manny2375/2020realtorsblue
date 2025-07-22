@@ -4,13 +4,10 @@ import { AuthManager } from './lib/auth';
 import { EmailService } from './lib/email';
 import { KVManager } from './lib/kv';
 
-// Import static assets manifest (will be generated during build)
-declare const __STATIC_CONTENT_MANIFEST: string;
-
 export interface Env {
   DB: D1Database;
   KV: KVNamespace;
-  __STATIC_CONTENT: KVNamespace;
+  ASSETS: Fetcher;
   JWT_SECRET: string;
   CORS_ORIGIN: string;
   ENVIRONMENT: string;
@@ -78,60 +75,43 @@ export default {
 // Handle static file requests for the frontend
 async function handleStaticRequest(request: Request, env: Env): Promise<Response> {
   try {
-    const url = new URL(request.url);
-    let pathname = url.pathname;
-
-    // Handle root path
-    if (pathname === '/') {
-      pathname = '/index.html';
-    }
-
-    // Handle SPA routing - serve index.html for non-asset routes
-    if (!pathname.includes('.') && !pathname.startsWith('/api/')) {
-      pathname = '/index.html';
-    }
-
-    // Remove leading slash for KV key
-    const key = pathname.startsWith('/') ? pathname.slice(1) : pathname;
-
-    // Try to get the file from KV storage
-    const file = await env.__STATIC_CONTENT.get(key, { type: 'arrayBuffer' });
+    // Try to serve the static asset using the new Assets binding
+    const assetResponse = await env.ASSETS.fetch(request);
     
-    if (!file) {
-      // If file not found and it's not an API route, serve index.html for SPA routing
-      if (!pathname.startsWith('/api/')) {
-        const indexFile = await env.__STATIC_CONTENT.get('index.html', { type: 'arrayBuffer' });
-        if (indexFile) {
-          return new Response(indexFile, {
-            headers: {
-              'Content-Type': 'text/html',
-              'Cache-Control': 'public, max-age=0, must-revalidate',
-              ...corsHeaders,
-            },
-          });
-        }
-      }
-      
-      return new Response('Not Found', { 
-        status: 404,
-        headers: corsHeaders,
+    if (assetResponse.status === 200) {
+      // Add CORS headers to the asset response
+      const response = new Response(assetResponse.body, {
+        status: assetResponse.status,
+        statusText: assetResponse.statusText,
+        headers: {
+          ...Object.fromEntries(assetResponse.headers),
+          ...corsHeaders,
+        },
       });
+      return response;
     }
-
-    // Determine content type based on file extension
-    const contentType = getContentType(pathname);
     
-    // Set appropriate cache headers
-    const cacheControl = pathname.includes('/assets/') || pathname.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2)$/)
-      ? 'public, max-age=31536000, immutable' // 1 year for assets
-      : 'public, max-age=0, must-revalidate'; // No cache for HTML
-
-    return new Response(file, {
-      headers: {
-        'Content-Type': contentType,
-        'Cache-Control': cacheControl,
-        ...corsHeaders,
-      },
+    // If asset not found and it's not an API route, serve index.html for SPA routing
+    const url = new URL(request.url);
+    if (!url.pathname.startsWith('/api/')) {
+      const indexRequest = new Request(new URL('/index.html', request.url), request);
+      const indexResponse = await env.ASSETS.fetch(indexRequest);
+      
+      if (indexResponse.status === 200) {
+        return new Response(indexResponse.body, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/html',
+            'Cache-Control': 'public, max-age=0, must-revalidate',
+            ...corsHeaders,
+          },
+        });
+      }
+    }
+    
+    return new Response('Not Found', { 
+      status: 404,
+      headers: corsHeaders,
     });
 
   } catch (error) {
@@ -143,32 +123,6 @@ async function handleStaticRequest(request: Request, env: Env): Promise<Response
   }
 }
 
-// Get content type based on file extension
-function getContentType(pathname: string): string {
-  const ext = pathname.split('.').pop()?.toLowerCase();
-  
-  const mimeTypes: Record<string, string> = {
-    'html': 'text/html',
-    'css': 'text/css',
-    'js': 'application/javascript',
-    'json': 'application/json',
-    'png': 'image/png',
-    'jpg': 'image/jpeg',
-    'jpeg': 'image/jpeg',
-    'gif': 'image/gif',
-    'svg': 'image/svg+xml',
-    'ico': 'image/x-icon',
-    'woff': 'font/woff',
-    'woff2': 'font/woff2',
-    'ttf': 'font/ttf',
-    'eot': 'application/vnd.ms-fontobject',
-    'txt': 'text/plain',
-    'xml': 'application/xml',
-    'pdf': 'application/pdf',
-  };
-
-  return mimeTypes[ext || ''] || 'application/octet-stream';
-}
 
 async function handleApiRequest(
   request: Request,

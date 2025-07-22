@@ -5,18 +5,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:worker": "wrangler dev",
-    "dev:full": "npm run build && wrangler dev",
+    "dev:worker": "wrangler dev --port 8787 --local",
+    "dev:full": "npm run build && wrangler dev --port 8787 --local",
     "build": "vite build",
-    "build:worker": "npm run build && wrangler deploy",
+    "build:worker": "npm run build && wrangler deploy --minify",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy": "npm run build && wrangler deploy",
+    "deploy": "npm run build && wrangler deploy --minify",
     "db:init": "wrangler d1 execute 2020realtors-blue --file=./supabase/migrations/20250703052040_young_haze.sql",
     "db:seed": "wrangler d1 execute 2020realtors-blue --file=./supabase/migrations/20250703052100_white_hall.sql",
     "db:email": "wrangler d1 execute 2020realtors-blue --file=./supabase/migrations/20250703052200_email_system.sql",
     "db:reset": "npm run db:init && npm run db:seed && npm run db:email",
-    "secrets:setup": "echo 'Run: wrangler secret put SENDGRID_API_KEY'"
+    "secrets:setup": "echo 'Run: wrangler secret put SENDGRID_API_KEY'",
+    "wrangler:update": "npm install --save-dev wrangler@latest"
   },
   "dependencies": {
     "lucide-react": "^0.344.0",
@@ -40,6 +41,6 @@
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.18.1",
     "vite": "^7.0.5",
-    "wrangler": "^3.95.0"
+    "wrangler": "^4.25.0"
   }
 }

@@ -5,9 +5,10 @@ main = "src/worker.ts"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Static site configuration
-[site]
-bucket = "./dist"
+# Assets configuration for Wrangler 4
+[assets]
+directory = "./dist"
+binding = "ASSETS"
 
 # D1 Database binding
 [[d1_databases]]
@@ -38,9 +39,6 @@ FROM_EMAIL = "info@2020realtors.com"
 FROM_NAME = "20/20 Realtors"
 
 # Development commands
-[dev]
-local = true
-port = 8787
 
 # Secrets (set these using wrangler secret put)
 # SENDGRID_API_KEY = "your-sendgrid-api-key"
