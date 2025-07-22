@@ -1,709 +1,308 @@
-// Cloudflare Worker entry point for the real estate application API
-import { DatabaseManager } from './lib/database';
-import { AuthManager } from './lib/auth';
-import { EmailService } from './lib/email';
-import { KVManager } from './lib/kv';
+import React, { useState } from 'react';
+import { Search, ArrowRight, MapPin, Bed, Bath, Square, Star, Award, Users, Home, Phone, Mail, ChevronDown, Eye } from 'lucide-react';
+import { properties } from '../data/properties';
+import FavoriteButton from '../components/FavoriteButton';
 
-export interface Env {
-  DB: D1Database;
-  KV: KVNamespace;
-  ASSETS: Fetcher; // Cloudflare static assets binding
-  JWT_SECRET: string;
-  CORS_ORIGIN: string;
-  ENVIRONMENT: string;
-  SENDGRID_API_KEY: string;
-  FROM_EMAIL: string;
-  FROM_NAME: string;
+interface HomePageProps {
+  onPageChange?: (page: string) => void;
+  onPropertySelect?: (propertyId: number) => void;
 }
 
-// CORS headers
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+export default function HomePage({ onPageChange, onPropertySelect }: HomePageProps) {
+  const [searchQuery, setSearchQuery] = useState('');
 
-export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    try {
-      const url = new URL(request.url);
-      const path = url.pathname;
+  const handleSearch = () => {
+    if (searchQuery.trim()) {
+      // Store search query for properties page
+      sessionStorage.setItem('searchQuery', searchQuery);
+    }
+    if (onPageChange) {
+      onPageChange('properties');
+    }
+  };
 
-      // Handle CORS preflight requests
-      if (request.method === 'OPTIONS') {
-        return new Response(null, {
-          status: 200,
-          headers: corsHeaders,
-        });
-      }
+  const handlePropertyClick = (propertyId: number) => {
+    // Scroll to top before navigating
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    if (onPropertySelect) {
+      onPropertySelect(propertyId);
+    }
+  };
 
-      // Initialize database, auth, and email managers
-      const db = new DatabaseManager(env.DB);
-      const auth = new AuthManager(db);
-      const kv = new KVManager(env.KV);
-      const email = new EmailService(
-        env.SENDGRID_API_KEY || 'your-sendgrid-api-key',
-        env.FROM_EMAIL || 'info@2020realtors.com',
-        env.FROM_NAME || '20/20 Realtors',
-        db
-      );
+  const handleEyeIconClick = (e: React.MouseEvent, propertyId: number) => {
+    e.stopPropagation(); // Prevent triggering parent click events
+    // Scroll to top immediately for eye icon clicks
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    handlePropertyClick(propertyId);
+  };
 
-      // API Routes
-      if (path.startsWith('/api/')) {
-        return await handleApiRequest(request, path, db, auth, email, kv, env);
-      }
+  // Get featured properties for display
+  const featuredProperties = properties.filter(property => property.featured).slice(0, 3);
 
-      // Debug: Check if ASSETS binding is working
-      if (path === '/test') {
-        return new Response(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>Test Page</title>
-            <style>
-              body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
-              .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
-              .success { color: green; font-weight: bold; }
-              .error { color: red; font-weight: bold; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>🔧 Debug Test Page</h1>
-              <p class="success">✅ Worker is running correctly</p>
-              <p class="success">✅ Static HTML serving works</p>
-              <p><strong>ASSETS binding available:</strong> ${env.ASSETS ? 'Yes' : 'No'}</p>
-              <p><strong>Current path:</strong> ${path}</p>
-              <p><strong>Environment:</strong> ${env.ENVIRONMENT}</p>
-              
-              <h2>Next Steps:</h2>
-              <ol>
-                <li>Visit <a href="/">/</a> to test React app</li>
-                <li>Visit <a href="/api/properties">/api/properties</a> to test API</li>
-                <li>Check browser console for JavaScript errors</li>
-              </ol>
-              
-              <h2>20/20 Realtors</h2>
-              <p>Your Vision, Our Mission</p>
-              <p>Phone: (714) 262-4263</p>
-              <p>Email: info@2020realtors.com</p>
-            </div>
-          </body>
-          </html>
-        `, {
-          headers: {
-            'Content-Type': 'text/html',
-            ...corsHeaders,
-          },
-        });
-      }
+  const stats = [
+    { icon: Home, value: "1800+", label: "Homes Sold" },
+    { icon: Users, value: "3000+", label: "Happy Clients" },
+    { icon: Award, value: "180+", label: "Years Combined Experience" },
+    { icon: Star, value: "4.9/5", label: "Average Rating" }
+  ];
 
-      // Try to serve static assets, with fallback
-      try {
-        const response = await env.ASSETS.fetch(request);
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Hero Section */}
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+        {/* Background Image */}
+        <div className="absolute inset-0">
+          <img 
+            src="https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=1600"
+            alt="Beautiful home exterior"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-slate-900/70"></div>
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-900/50 via-slate-900/30 to-slate-900/70"></div>
+        </div>
         
-        // If we get a 404 for the root path, serve a simple React app
-        if (response.status === 404 && path === '/') {
-          return new Response(`
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-              <meta charset="UTF-8" />
-              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-              <title>20/20 Realtors - Real Estate</title>
-              <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-              <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-              <script src="https://cdn.tailwindcss.com"></script>
-              <style>
-                body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
-                .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-                .card-hover { transition: transform 0.3s ease; }
-                .card-hover:hover { transform: translateY(-5px); }
-              </style>
-            </head>
-            <body>
-              <div id="root">
-                <div class="min-h-screen bg-gray-50">
-                  <!-- Header -->
-                  <header class="bg-slate-900 text-white py-4">
-                    <div class="max-w-7xl mx-auto px-6 flex items-center justify-between">
-                      <div class="flex items-center space-x-4">
-                        <div class="w-12 h-12 bg-yellow-500 rounded-lg flex items-center justify-center font-bold text-slate-900">
-                          20/20
-                        </div>
-                        <div>
-                          <div class="text-xl font-bold">20/20 REALTORS</div>
-                          <div class="text-yellow-400 text-sm">Your Vision, Our Mission</div>
-                        </div>
-                      </div>
-                      <nav class="hidden md:flex space-x-6">
-                        <a href="#" class="hover:text-yellow-400 transition-colors">Home</a>
-                        <a href="#" class="hover:text-yellow-400 transition-colors">Properties</a>
-                        <a href="#" class="hover:text-yellow-400 transition-colors">Agents</a>
-                        <a href="#" class="hover:text-yellow-400 transition-colors">Contact</a>
-                      </nav>
-                    </div>
-                  </header>
+        {/* Content */}
+        <div className="relative z-10 max-w-4xl mx-auto px-6 text-center text-white">
+          <div className="animate-slide-up">
+            <div className="inline-flex items-center bg-white/10 backdrop-blur-sm rounded-full px-6 py-3 mb-8 border border-white/20">
+              <span className="mr-2">✨</span>
+              <span className="text-sm font-medium">Your Vision, Our Mission</span>
+            </div>
+            <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
+              Find Your Perfect<br />
+              <span className="text-yellow-400">Dream Home</span>
+            </h1>
+            <p className="text-xl md:text-2xl mb-12 opacity-90 max-w-3xl mx-auto leading-relaxed">
+              Discover exceptional properties with Orange County's most trusted real estate team
+            </p>
+          </div>
+          
+          {/* Search Bar */}
+          <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-white/20 animate-slide-up animation-delay-200 max-w-2xl mx-auto">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1 relative group">
+                <Search className="absolute left-6 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by location, MLS, or keyword..."
+                  className="w-full pl-14 pr-6 py-5 text-slate-900 text-lg border-0 focus:ring-0 focus:outline-none bg-transparent rounded-2xl focus:bg-white/50 transition-all duration-300"
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                />
+              </div>
+              <button 
+                onClick={handleSearch}
+                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-10 py-5 rounded-2xl font-semibold transition-all duration-300 text-lg shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center justify-center group"
+              >
+                Search
+                <ArrowRight className="ml-3 group-hover:translate-x-2 transition-transform" size={20} />
+              </button>
+            </div>
+          </div>
+          
+          <div className="mt-12 animate-slide-up animation-delay-400">
+            <button className="text-white hover:text-yellow-400 transition-all duration-300 font-medium group flex items-center justify-center mx-auto">
+              Explore
+              <ChevronDown className="ml-2 group-hover:translate-y-1 transition-transform" size={20} />
+            </button>
+          </div>
+        </div>
+      </section>
 
-                  <!-- Hero Section -->
+      {/* Stats Section */}
+      <section className="py-20 bg-gradient-to-br from-slate-50 to-white">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+            {stats.map((stat, index) => (
+              <div key={index} className="text-center animate-slide-up" style={{animationDelay: `${index * 100}ms`}}>
+                <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-blue-700 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+                  <stat.icon size={32} className="text-white" />
+                </div>
+                <div className="text-4xl font-bold text-slate-900 mb-2">{stat.value}</div>
+                <div className="text-slate-600 font-medium">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Featured Properties */}
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-16 animate-slide-up">
+            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6">Featured Properties</h2>
+            <p className="text-xl text-slate-600 max-w-3xl mx-auto">
+              Discover our handpicked selection of exceptional homes in Orange County's most desirable neighborhoods
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-10">
+            {featuredProperties.map((property, index) => (
+              <div 
+                key={property.id} 
+                className={`bg-white rounded-3xl shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-500 group cursor-pointer border border-slate-100 animate-slide-up`}
+                style={{animationDelay: `${index * 200}ms`}}
+                onClick={() => handlePropertyClick(property.id)}
+              >
+                <div className="relative overflow-hidden">
+                  <img 
+                    src={property.image}
+                    alt="Property"
+                    className="w-full h-72 object-cover group-hover:scale-110 transition-transform duration-700"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent"></div>
+                  <div className="absolute top-6 left-6 flex gap-3">
+                    <span className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-slate-900 px-4 py-2 rounded-full text-sm font-bold shadow-lg">
+                      ✨ Featured
+                    </span>
+                    <span className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
+                      {property.status}
+                    </span>
+                  </div>
+                  <div className="absolute top-6 right-6 flex gap-3">
+                    <FavoriteButton propertyId={property.id} size={18} className="p-3" />
+                    <button 
+                      onClick={(e) => handleEyeIconClick(e, property.id)}
+                      className="bg-white/95 hover:bg-white text-slate-700 p-3 rounded-full transition-all duration-300 shadow-lg hover:scale-110"
+                      title="View property details"
+                    >
+                      <Eye size={18} />
+                    </button>
+                  </div>
+                  <div className="absolute bottom-6 left-6 bg-white/95 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg border border-white/20">
+                    <div className="flex items-center text-sm font-semibold">
+                      <span>{property.daysOnMarket} days on market</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="p-8">
+                  <div className="text-3xl font-bold text-slate-900 mb-3 bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">{property.price}</div>
+                  <div className="flex items-center text-slate-600 mb-6">
+                    <MapPin size={16} className="mr-2 text-blue-600" />
+                    <span className="text-sm font-medium">{property.address}, {property.city}, {property.state}</span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-slate-700 mb-6 bg-slate-50 rounded-2xl p-4">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center mr-3">
+                        <Bed size={16} className="text-blue-600" />
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold">{property.beds}</div>
+                        <div className="text-xs text-slate-500">beds</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center mr-3">
+                        <Bath size={16} className="text-green-600" />
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold">{property.baths}</div>
+                        <div className="text-xs text-slate-500">baths</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center mr-3">
+                        <Square size={16} className="text-purple-600" />
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold">{property.sqft.toLocaleString()}</div>
+                        <div className="text-xs text-slate-500">sqft</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="text-slate-600 bg-slate-100 px-3 py-2 rounded-xl">
+                      ${Math.round(property.priceNumeric / property.sqft)}/sqft
+                    </div>
+                    <div className="text-slate-600 bg-slate-100 px-3 py-2 rounded-xl">
+                      {property.neighborhood}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </body>
-            </html>
-          `, {
-            headers: {
-              'Content-Type': 'text/html',
-              ...corsHeaders,
-            },
-          });
-        }
-        
-        return response;
-      } catch (error) {
-        console.error('Assets fetch error:', error);
-        return new Response(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>Test Page</title>
-            <style>
-              body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
-              .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
-              .success { color: green; font-weight: bold; }
-              .error { color: red; font-weight: bold; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>🔧 Debug Test Page</h1>
-              <p class="success">✅ Worker is running correctly</p>
-              <p class="success">✅ Static HTML serving works</p>
-              <p><strong>ASSETS binding available:</strong> ${env.ASSETS ? 'Yes' : 'No'}</p>
-              <p><strong>Current path:</strong> ${path}</p>
-              <p><strong>Environment:</strong> ${env.ENVIRONMENT}</p>
-              
-              <h2>Next Steps:</h2>
-              <ol>
-                <li>Visit <a href="/">/</a> to test React app</li>
-                <li>Visit <a href="/api/properties">/api/properties</a> to test API</li>
-                <li>Check browser console for JavaScript errors</li>
-              </ol>
-              
-              <h2>20/20 Realtors</h2>
-              <p>Your Vision, Our Mission</p>
-              <p>Phone: (714) 262-4263</p>
-              <p>Email: info@2020realtors.com</p>
+            ))}
+          </div>
+
+          <div className="text-center mt-16 animate-slide-up">
+            <button 
+              onClick={() => onPageChange && onPageChange('properties')}
+              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-10 py-4 rounded-2xl font-bold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center justify-center mx-auto group"
+            >
+              View All Properties
+              <ArrowRight className="ml-3 group-hover:translate-x-2 transition-transform" size={20} />
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Why Choose Us */}
+      <section className="py-20 bg-gradient-to-br from-slate-50 to-white">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-16 animate-slide-up">
+            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6">Why Choose 20/20 Realtors</h2>
+            <p className="text-xl text-slate-600 max-w-3xl mx-auto">
+              Experience the difference of working with Orange County's most trusted real estate professionals
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="text-center p-8 bg-white rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 animate-slide-up">
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-blue-700 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                <Award size={32} className="text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-900 mb-4">Expert Knowledge</h3>
+              <p className="text-slate-600 leading-relaxed">Our team brings decades of combined experience and deep knowledge of Orange County's real estate market to every transaction.</p>
             </div>
-          </body>
-          </html>
-        `, {
-          headers: {
-            'Content-Type': 'text/html',
-            ...corsHeaders,
-          },
-        });
-      }
 
-    } catch (error) {
-      console.error('Worker error:', error);
-      return new Response(JSON.stringify({ 
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      }), {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders,
-        },
-      });
-    }
-  },
-};
+            <div className="text-center p-8 bg-white rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 animate-slide-up animation-delay-200">
+              <div className="w-20 h-20 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                <Users size={32} className="text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-900 mb-4">Personalized Service</h3>
+              <p className="text-slate-600 leading-relaxed">We believe every client is unique. Our agents take time to understand your specific needs and provide tailored solutions.</p>
+            </div>
 
-async function handleApiRequest(
-  request: Request,
-  path: string,
-  db: DatabaseManager,
-  auth: AuthManager,
-  email: EmailService,
-  kv: KVManager,
-  env: Env
-): Promise<Response> {
-  const method = request.method;
-  const url = new URL(request.url);
+            <div className="text-center p-8 bg-white rounded-3xl shadow-xl hover:shadow-2xl transition-all duration-300 animate-slide-up animation-delay-400">
+              <div className="w-20 h-20 bg-gradient-to-br from-slate-700 to-slate-800 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                <Star size={32} className="text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-900 mb-4">Proven Results</h3>
+              <p className="text-slate-600 leading-relaxed">With over 1,800 successful transactions and a 4.9/5 client satisfaction rating, our results speak for themselves.</p>
+            </div>
+          </div>
+        </div>
+      </section>
 
-  try {
-    // Authentication routes
-    if (path === '/api/auth/register' && method === 'POST') {
-      const body = await request.json() as any;
-      
-      // Rate limiting for registration
-      const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
-      const rateLimit = await kv.checkRateLimit(`register:${clientIP}`, 5, 3600); // 5 per hour
-      
-      if (!rateLimit.allowed) {
-        return jsonResponse({ 
-          error: 'Too many registration attempts. Please try again later.',
-          resetTime: rateLimit.resetTime
-        }, 429);
-      }
-      
-      const result = await auth.register(body);
-      
-      // Send welcome email
-      if (result.success) {
-        await email.sendWelcomeEmail({
-          userId: result.userId,
-          email: body.email,
-          firstName: body.firstName,
-          lastName: body.lastName
-        });
-      }
-      
-      // Track registration metric
-      await kv.incrementMetric('registrations');
-      
-      return jsonResponse(result);
-    }
-
-    if (path === '/api/auth/login' && method === 'POST') {
-      const body = await request.json() as any;
-      
-      // Rate limiting for login attempts
-      const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
-      const rateLimit = await kv.checkRateLimit(`login:${clientIP}`, 10, 900); // 10 per 15 minutes
-      
-      if (!rateLimit.allowed) {
-        return jsonResponse({ 
-          error: 'Too many login attempts. Please try again later.',
-          resetTime: rateLimit.resetTime
-        }, 429);
-      }
-      
-      const result = await auth.login(body.email, body.password);
-      
-      console.log('Login result:', { success: result.success, user: result.user?.email });
-      
-      // Cache session in KV for faster lookups
-      if (result.success && result.sessionToken) {
-        await kv.setSession(result.sessionToken, result.user);
-      }
-      
-      // Track login metric
-      await kv.incrementMetric('logins');
-      
-      return jsonResponse(result);
-    }
-
-    if (path === '/api/auth/logout' && method === 'POST') {
-      const authHeader = request.headers.get('Authorization');
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const sessionToken = authHeader.substring(7);
-        await kv.deleteSession(sessionToken);
-        await auth.logout(sessionToken);
-      }
-      return jsonResponse({ success: true });
-    }
-
-    if (path === '/api/auth/me' && method === 'GET') {
-      // Try KV cache first for faster session lookup
-      const authHeader = request.headers.get('Authorization');
-      let user = null;
-      
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const sessionToken = authHeader.substring(7);
-        user = await kv.getSession(sessionToken);
-      }
-      
-      // Fallback to database if not in cache
-      if (!user) {
-        user = await auth.requireAuth(request);
-        // Cache the session for next time
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-          const sessionToken = authHeader.substring(7);
-          await kv.setSession(sessionToken, user);
-        }
-      }
-      
-      return jsonResponse({ user });
-    }
-
-    // Properties routes
-    if (path === '/api/properties' && method === 'GET') {
-      const filters = {
-        status: url.searchParams.get('status') || undefined,
-        propertyType: url.searchParams.get('propertyType') || undefined,
-        minPrice: url.searchParams.get('minPrice') ? parseInt(url.searchParams.get('minPrice')!) : undefined,
-        maxPrice: url.searchParams.get('maxPrice') ? parseInt(url.searchParams.get('maxPrice')!) : undefined,
-        minBedrooms: url.searchParams.get('minBedrooms') ? parseInt(url.searchParams.get('minBedrooms')!) : undefined,
-        minBathrooms: url.searchParams.get('minBathrooms') ? parseInt(url.searchParams.get('minBathrooms')!) : undefined,
-        city: url.searchParams.get('city') || undefined,
-        isFeatured: url.searchParams.get('featured') === 'true' ? true : undefined,
-        limit: url.searchParams.get('limit') ? parseInt(url.searchParams.get('limit')!) : undefined,
-        offset: url.searchParams.get('offset') ? parseInt(url.searchParams.get('offset')!) : undefined,
-      };
-
-      // Try cache first
-      let properties = await kv.getCachedProperties(filters);
-      
-      if (!properties) {
-        // Cache miss - get from database and cache result
-        properties = await db.getAllProperties(filters);
-        await kv.cacheProperties(filters, properties, 1800); // Cache for 30 minutes
-      }
-      
-      // Track property views
-      await kv.incrementMetric('property_views');
-      
-      return jsonResponse({ properties });
-    }
-
-    if (path.startsWith('/api/properties/') && method === 'GET') {
-      const propertyId = parseInt(path.split('/')[3]);
-      const property = await db.getPropertyById(propertyId);
-      
-      if (!property) {
-        return jsonResponse({ error: 'Property not found' }, 404);
-      }
-
-      // Get property images
-      const images = await db.getPropertyImages(propertyId);
-      
-      return jsonResponse({ 
-        property: {
-          ...property,
-          images
-        }
-      });
-    }
-
-    if (path === '/api/properties/search' && method === 'GET') {
-      const query = url.searchParams.get('q') || '';
-      const filters = {
-        propertyType: url.searchParams.get('propertyType') || undefined,
-        minBedrooms: url.searchParams.get('minBedrooms') ? parseInt(url.searchParams.get('minBedrooms')!) : undefined,
-        minBathrooms: url.searchParams.get('minBathrooms') ? parseInt(url.searchParams.get('minBathrooms')!) : undefined,
-        minPrice: url.searchParams.get('minPrice') ? parseInt(url.searchParams.get('minPrice')!) : undefined,
-        maxPrice: url.searchParams.get('maxPrice') ? parseInt(url.searchParams.get('maxPrice')!) : undefined,
-      };
-
-      const properties = await db.searchProperties(query, filters);
-      
-      // Track search analytics
-      await kv.trackSearch(query, filters, properties.length);
-      await kv.incrementPopularSearch(query);
-      await kv.incrementMetric('searches');
-      
-      return jsonResponse({ properties, query, filters });
-    }
-
-    // Agents routes
-    if (path === '/api/agents' && method === 'GET') {
-      // Try cache first
-      let agents = await kv.getCachedAgents();
-      
-      if (!agents) {
-        // Cache miss - get from database and cache result
-        agents = await db.getAllAgents();
-        await kv.cacheAgents(agents, 3600); // Cache for 1 hour
-      }
-      
-      return jsonResponse({ agents });
-    }
-
-    if (path.startsWith('/api/agents/') && method === 'GET') {
-      const agentId = parseInt(path.split('/')[3]);
-      const agent = await db.getAgentById(agentId);
-      
-      if (!agent) {
-        return jsonResponse({ error: 'Agent not found' }, 404);
-      }
-
-      return jsonResponse({ agent });
-    }
-
-    // Favorites routes (require authentication)
-    if (path === '/api/favorites' && method === 'GET') {
-      const user = await auth.requireAuth(request);
-      const favorites = await db.getUserFavorites(user.id);
-      return jsonResponse({ favorites });
-    }
-
-    if (path === '/api/favorites' && method === 'POST') {
-      const user = await auth.requireAuth(request);
-      const body = await request.json() as any;
-      const result = await db.addToFavorites(user.id, body.propertyId);
-      return jsonResponse({ success: true });
-    }
-
-    if (path.startsWith('/api/favorites/') && method === 'DELETE') {
-      const user = await auth.requireAuth(request);
-      const propertyId = parseInt(path.split('/')[3]);
-      const result = await db.removeFromFavorites(user.id, propertyId);
-      return jsonResponse({ success: true });
-    }
-
-    // Favorites sync route
-    if (path === '/api/favorites/sync' && method === 'POST') {
-      const user = await auth.requireAuth(request);
-      const body = await request.json() as any;
-      const { favoriteIds } = body;
-
-      // Add all favorites from localStorage to database
-      for (const propertyId of favoriteIds) {
-        try {
-          await db.addToFavorites(user.id, propertyId);
-        } catch (error) {
-          // Ignore duplicates, continue with others
-          console.log(`Favorite ${propertyId} already exists for user ${user.id}`);
-        }
-      }
-
-      return jsonResponse({ success: true, synced: favoriteIds.length });
-    }
-
-    // Inquiries routes
-    if (path === '/api/inquiries' && method === 'POST') {
-      const body = await request.json() as any;
-      
-      // Try to get user from auth header (optional)
-      let userId = undefined;
-      try {
-        const user = await auth.requireAuth(request);
-        userId = user.id;
-      } catch (e) {
-        // User not authenticated, that's okay for inquiries
-      }
-
-      const result = await db.createInquiry({
-        ...body,
-        userId
-      });
-
-      // Send email notification to agent
-      if (body.propertyId) {
-        const property = await db.getPropertyById(body.propertyId);
-        if (property && property.agent_email) {
-          await email.sendPropertyInquiryNotification({
-            propertyId: body.propertyId,
-            propertyTitle: property.title,
-            propertyAddress: `${property.address}, ${property.city}, ${property.state}`,
-            inquirerName: body.name,
-            inquirerEmail: body.email,
-            inquirerPhone: body.phone,
-            message: body.message || 'No message provided',
-            agentEmail: property.agent_email,
-            agentName: `${property.agent_first_name} ${property.agent_last_name}`
-          });
-        }
-      }
-
-      return jsonResponse({ success: true, inquiryId: result.meta.last_row_id });
-    }
-
-    // Agent inquiries (require agent authentication)
-    if (path === '/api/agent/inquiries' && method === 'GET') {
-      const user = await auth.requireAuth(request);
-      
-      if (!auth.hasRole(user, 'agent')) {
-        return jsonResponse({ error: 'Unauthorized' }, 403);
-      }
-
-      // Get agent ID from user
-      const agent = await db.getAgentById(user.id);
-      if (!agent) {
-        return jsonResponse({ error: 'Agent not found' }, 404);
-      }
-
-      const inquiries = await db.getInquiriesByAgent(agent.id);
-      return jsonResponse({ inquiries });
-    }
-
-    // Search history routes (require authentication)
-    if (path === '/api/search-history' && method === 'GET') {
-      const user = await auth.requireAuth(request);
-      const history = await db.getUserSearchHistory(user.id);
-      return jsonResponse({ history });
-    }
-
-    if (path === '/api/search-history' && method === 'POST') {
-      const user = await auth.requireAuth(request);
-      const body = await request.json() as any;
-      
-      await db.saveSearchHistory(
-        user.id,
-        body.searchQuery,
-        body.filters,
-        body.resultsCount
-      );
-      
-      // Also track in KV for analytics
-      await kv.trackSearch(body.searchQuery, body.filters, body.resultsCount);
-
-      return jsonResponse({ success: true });
-    }
-
-    // Email notification routes
-    if (path === '/api/email/notifications' && method === 'GET') {
-      const user = await auth.requireAuth(request);
-      const notifications = await email.getEmailHistory(user.id);
-      return jsonResponse({ notifications });
-    }
-
-    if (path === '/api/email/stats' && method === 'GET') {
-      const user = await auth.requireAuth(request);
-      const stats = await email.getEmailStats(user.id);
-      return jsonResponse({ stats });
-    }
-
-    // Email preferences routes
-    if (path === '/api/email/preferences' && method === 'GET') {
-      const user = await auth.requireAuth(request);
-      const preferences = await db.getUserEmailPreferences(user.id);
-      return jsonResponse({ preferences });
-    }
-
-    if (path === '/api/email/preferences' && method === 'POST') {
-      const user = await auth.requireAuth(request);
-      const body = await request.json() as any;
-      
-      await db.createUserEmailPreferences(user.id, body);
-      return jsonResponse({ success: true });
-    }
-
-    // Price alerts routes
-    if (path === '/api/price-alerts' && method === 'GET') {
-      const user = await auth.requireAuth(request);
-      const alerts = await db.getUserPriceAlerts(user.id);
-      return jsonResponse({ alerts });
-    }
-
-    if (path === '/api/price-alerts' && method === 'POST') {
-      const user = await auth.requireAuth(request);
-      const body = await request.json() as any;
-      
-      const result = await db.createPriceAlert({
-        userId: user.id,
-        propertyId: body.propertyId,
-        targetPrice: body.targetPrice,
-        alertType: body.alertType,
-        isActive: true
-      });
-
-      return jsonResponse({ success: true, alertId: result.meta.last_row_id });
-    }
-
-    // Tour request route
-    if (path === '/api/tour-request' && method === 'POST') {
-      const body = await request.json() as any;
-      
-      // Create inquiry first
-      const result = await db.createInquiry({
-        propertyId: body.propertyId,
-        name: body.fullName,
-        email: body.email,
-        phone: body.phone,
-        message: body.message,
-        inquiryType: 'tour_request',
-        preferredContactMethod: 'phone'
-      });
-
-      // Send confirmation email to client
-      const property = await db.getPropertyById(body.propertyId);
-      if (property) {
-        await email.sendTourRequestConfirmation({
-          propertyId: body.propertyId,
-          propertyTitle: property.title,
-          propertyAddress: `${property.address}, ${property.city}, ${property.state}`,
-          clientName: body.fullName,
-          clientEmail: body.email,
-          requestedDate: body.message,
-          agentName: property.agent_first_name && property.agent_last_name 
-            ? `${property.agent_first_name} ${property.agent_last_name}`
-            : '20/20 Realtors Team',
-          agentPhone: property.agent_phone || '(714) 262-4263'
-        });
-
-        // Send notification to agent
-        if (property.agent_email) {
-          await email.sendPropertyInquiryNotification({
-            propertyId: body.propertyId,
-            propertyTitle: property.title,
-            propertyAddress: `${property.address}, ${property.city}, ${property.state}`,
-            inquirerName: body.fullName,
-            inquirerEmail: body.email,
-            inquirerPhone: body.phone,
-            message: `Tour Request: ${body.message}`,
-            agentEmail: property.agent_email,
-            agentName: `${property.agent_first_name} ${property.agent_last_name}`
-          });
-        }
-      }
-
-      return jsonResponse({ success: true, inquiryId: result.meta.last_row_id });
-    }
-
-    // Analytics and metrics routes
-    if (path === '/api/analytics/popular-searches' && method === 'GET') {
-      const limit = parseInt(url.searchParams.get('limit') || '10');
-      const popularSearches = await kv.getPopularSearches(limit);
-      return jsonResponse({ popularSearches });
-    }
-
-    if (path === '/api/analytics/metrics' && method === 'GET') {
-      const metric = url.searchParams.get('metric') || 'property_views';
-      const days = parseInt(url.searchParams.get('days') || '7');
-      const metrics = await kv.getMetrics(metric, days);
-      return jsonResponse({ metrics, metric });
-    }
-
-    // KV health check route
-    if (path === '/api/health/kv' && method === 'GET') {
-      const isHealthy = await kv.healthCheck();
-      return jsonResponse({ 
-        status: isHealthy ? 'healthy' : 'unhealthy',
-        timestamp: new Date().toISOString()
-      }, isHealthy ? 200 : 503);
-    }
-
-    // Webhook for SendGrid events
-    if (path === '/api/webhooks/sendgrid' && method === 'POST') {
-      const events = await request.json() as any[];
-      
-      for (const event of events) {
-        // Update email notification status based on webhook event
-        if (event.sg_message_id) {
-          const status = event.event === 'delivered' ? 'sent' : 
-                        event.event === 'bounce' ? 'bounced' : 
-                        event.event === 'dropped' ? 'failed' : 'pending';
-          
-          // You would need to store sg_message_id when sending emails to match them here
-          // For now, we'll just log the event
-          console.log('SendGrid webhook event:', event);
-        }
-      }
-
-      return jsonResponse({ success: true });
-    }
-
-    // Route not found
-    return jsonResponse({ error: 'Route not found' }, 404);
-
-  } catch (error) {
-    console.error('API error:', error);
-    return jsonResponse({ 
-      error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }, 500);
-  }
-}
-
-function jsonResponse(data: any, status = 200): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      ...corsHeaders,
-    },
-  });
+      {/* CTA Section */}
+      <section className="py-20 bg-gradient-to-br from-slate-900 to-slate-800">
+        <div className="max-w-4xl mx-auto px-6 text-center text-white">
+          <div className="animate-slide-up">
+            <h2 className="text-4xl md:text-5xl font-bold mb-6">Ready to Find Your Dream Home?</h2>
+            <p className="text-xl mb-10 opacity-90">Contact us today for a free consultation and let us help you navigate Orange County's real estate market</p>
+            <div className="flex flex-col sm:flex-row gap-6 justify-center">
+              <a 
+                href="tel:(714)262-4263"
+                className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-slate-900 px-10 py-4 rounded-2xl font-bold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center justify-center group"
+              >
+                <Phone size={20} className="mr-3" />
+                Call (714) 262-4263
+              </a>
+              <button 
+                onClick={() => onPageChange && onPageChange('contact')}
+                className="bg-white/10 hover:bg-white/20 text-white px-10 py-4 rounded-2xl font-bold transition-all duration-300 backdrop-blur-sm border border-white/20 hover:border-white/40 flex items-center justify-center group"
+              >
+                <Mail size={20} className="mr-3" />
+                Get In Touch
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
 }
